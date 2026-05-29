@@ -7,6 +7,10 @@ import (
 	"github.com/tdeschamps/modjo-cli/internal/api"
 )
 
+// ErrNotAuthenticated is returned when no credential can be resolved. It maps to
+// exit code 3 even when wrapped by the HTTP transport.
+var ErrNotAuthenticated = errors.New("not authenticated: run `modjo auth login` (or set MODJO_API_KEY)")
+
 // Process exit codes (product spec §9).
 const (
 	ExitOK         = 0
@@ -62,6 +66,10 @@ func ExitCodeForError(err error) int {
 
 	if errors.Is(err, context.DeadlineExceeded) {
 		return ExitTimeout
+	}
+
+	if errors.Is(err, ErrNotAuthenticated) {
+		return ExitAuth
 	}
 
 	var apiErr *api.Error

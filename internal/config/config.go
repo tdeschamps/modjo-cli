@@ -17,16 +17,16 @@ import (
 
 // Built-in defaults and endpoint constants (product spec §4.1, §5).
 const (
-	DefaultBaseURL      = "https://api.modjo.ai/v2"
-	DefaultMCPURL       = "https://api.mcp.modjo.ai/v1/mcp"
-	DefaultOutput       = "table"
-	DefaultColor        = "auto"
-	DefaultLanguage     = "en"
-	DefaultLimit        = 50
-	DefaultProfileName  = "default"
-	DefaultMaxRetries   = 3
-	IntegrationsURL     = "https://app.modjo.ai/settings/integrations/modjo_api_key"
-	DeviceAuthURL       = "https://app.modjo.ai/device"
+	DefaultBaseURL     = "https://api.modjo.ai/v2"
+	DefaultMCPURL      = "https://api.mcp.modjo.ai/v1/mcp"
+	DefaultOutput      = "table"
+	DefaultColor       = "auto"
+	DefaultLanguage    = "en"
+	DefaultLimit       = 50
+	DefaultProfileName = "default"
+	DefaultMaxRetries  = 3
+	IntegrationsURL    = "https://app.modjo.ai/settings/integrations/modjo_api_key"
+	DeviceAuthURL      = "https://app.modjo.ai/device"
 )
 
 // Profile is a single named workspace configuration.

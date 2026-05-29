@@ -166,7 +166,7 @@ func (f *Factory) TokenSource() func() (string, error) {
 		}
 		cred, err := store.Get(prof)
 		if err != nil {
-			return "", fmt.Errorf("not authenticated: run `modjo auth login` (or set MODJO_API_KEY)")
+			return "", ErrNotAuthenticated
 		}
 		return cred.Token, nil
 	}

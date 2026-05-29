@@ -57,6 +57,17 @@ func Test() (*IOStreams, *bytes.Buffer, *bytes.Buffer, *bytes.Buffer) {
 	}, in, out, errOut
 }
 
+// ReadAllStdin reads everything available on In.
+func (s *IOStreams) ReadAllStdin() ([]byte, error) {
+	return io.ReadAll(s.In)
+}
+
+// StdinFile returns In as an *os.File when possible (for password prompts).
+func (s *IOStreams) StdinFile() (*os.File, bool) {
+	f, ok := s.In.(*os.File)
+	return f, ok
+}
+
 // IsStdoutTTY reports whether stdout is an interactive terminal.
 func (s *IOStreams) IsStdoutTTY() bool { return s.stdoutTTY }
 

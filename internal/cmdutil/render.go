@@ -1,0 +1,52 @@
+package cmdutil
+
+import (
+	"context"
+	"iter"
+
+	"github.com/tdeschamps/modjo-cli/internal/output"
+)
+
+// CollectAndRender drains a paginating iterator into a slice, then renders it
+// through the factory's Printer using the supplied table fields. It returns the
+// first error encountered. This centralizes the "list → render" flow every
+// resource command shares.
+func CollectAndRender[T any](ctx context.Context, f *Factory, seq iter.Seq2[T, error], fields []output.Field) error {
+	var raws []any
+	var items []T
+	for item, err := range seq {
+		if err != nil {
+			return err
+		}
+		items = append(items, item)
+		raws = append(raws, item)
+	}
+	p, err := f.Printer()
+	if err != nil {
+		return err
+	}
+	// raw uses the typed slice so JSON/YAML reflect real field tags.
+	return p.Output(items, raws, fields)
+}
+
+// RenderSlice renders an already-collected slice of items.
+func RenderSlice[T any](f *Factory, items []T, fields []output.Field) error {
+	p, err := f.Printer()
+	if err != nil {
+		return err
+	}
+	raws := make([]any, len(items))
+	for i := range items {
+		raws[i] = items[i]
+	}
+	return p.Output(items, raws, fields)
+}
+
+// RenderOne renders a single object.
+func RenderOne[T any](f *Factory, item T, fields []output.Field) error {
+	p, err := f.Printer()
+	if err != nil {
+		return err
+	}
+	return p.Output(item, []any{item}, fields)
+}
