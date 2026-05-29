@@ -1,0 +1,6 @@
+/dist/
+/modjo
+*.out
+*.test
+.idea/
+.vscode/
