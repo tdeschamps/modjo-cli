@@ -12,8 +12,8 @@ import (
 // first error encountered. This centralizes the "list → render" flow every
 // resource command shares.
 func CollectAndRender[T any](ctx context.Context, f *Factory, seq iter.Seq2[T, error], fields []output.Field) error {
-	var raws []any
-	var items []T
+	raws := make([]any, 0)
+	items := make([]T, 0)
 	for item, err := range seq {
 		if err != nil {
 			return err

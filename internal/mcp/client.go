@@ -15,8 +15,8 @@ import (
 	"sync"
 )
 
-// Native agent UUIDs the CLI ships with so `--agent <name>` resolves offline
-// (product spec Appendix B).
+// NativeAgents maps the built-in Modjo agent names to their UUIDs so
+// `--agent <name>` resolves offline (product spec Appendix B).
 var NativeAgents = map[string]string{
 	"CallSummary":    "741e9ffc-87be-4bca-bb0d-f167be8b963e",
 	"NextStepper":    "09715241-0cdd-44c9-a386-92a1340bdf4a",

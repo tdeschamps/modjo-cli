@@ -28,17 +28,28 @@ func (f *Factory) SaveConfig(cfg *config.Config) error {
 	return config.Save(path, cfg)
 }
 
+// readPasswordTTY reads a secret with echo disabled when stdin is a TTY. The
+// second return reports whether stdin was actually a terminal. It is a package
+// var so tests can exercise the TTY path without a pseudo-terminal.
+var readPasswordTTY = func(io *iostreams.IOStreams) (string, bool, error) {
+	f, ok := io.StdinFile()
+	if !ok || !term.IsTerminal(int(f.Fd())) {
+		return "", false, nil
+	}
+	b, err := term.ReadPassword(int(f.Fd()))
+	return string(b), true, err
+}
+
 // PromptSecret reads a secret from the terminal with echo disabled when stdin
 // is a TTY, falling back to a plain line read otherwise.
 func PromptSecret(io *iostreams.IOStreams, prompt string) (string, error) {
 	fmt.Fprint(io.ErrOut, prompt)
-	if f, ok := io.StdinFile(); ok && term.IsTerminal(int(f.Fd())) {
-		b, err := term.ReadPassword(int(f.Fd()))
+	if s, isTTY, err := readPasswordTTY(io); isTTY {
 		fmt.Fprintln(io.ErrOut)
 		if err != nil {
 			return "", err
 		}
-		return string(b), nil
+		return s, nil
 	}
 	br := bufio.NewReader(io.In)
 	line, err := br.ReadString('\n')
@@ -71,21 +82,29 @@ func Confirm(io *iostreams.IOStreams, prompt string, def bool) (bool, error) {
 	}
 }
 
+// browserCommand returns the command and args to open url on the given OS. It
+// is split out from OpenBrowser so the platform mapping is unit-testable
+// without actually launching a browser.
+func browserCommand(goos, url string) (string, []string) {
+	switch goos {
+	case "darwin":
+		return "open", []string{url}
+	case "windows":
+		return "rundll32", []string{"url.dll,FileProtocolHandler", url}
+	default:
+		return "xdg-open", []string{url}
+	}
+}
+
+// BrowserRunner actually starts the command; overridable in tests.
+var BrowserRunner = func(name string, args ...string) error {
+	return exec.Command(name, args...).Start()
+}
+
 // OpenBrowser opens url in the user's default browser (best effort).
 func OpenBrowser(url string) error {
-	var cmd string
-	var args []string
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = "open"
-	case "windows":
-		cmd = "rundll32"
-		args = []string{"url.dll,FileProtocolHandler"}
-	default:
-		cmd = "xdg-open"
-	}
-	args = append(args, url)
-	return exec.Command(cmd, args...).Start()
+	name, args := browserCommand(runtime.GOOS, url)
+	return BrowserRunner(name, args...)
 }
 
 // OSLookup is os.LookupEnv exposed for resolver calls.

@@ -9,9 +9,16 @@ LDFLAGS     := -s -w \
 	-X $(VERSION_PKG).Commit=$(COMMIT) \
 	-X $(VERSION_PKG).Date=$(DATE)
 
-.PHONY: all build test test-e2e lint fmt vet vuln snapshot docs clean tidy
+# Coverage gate: total statement coverage must stay at or above this.
+COVER_MIN   ?= 95.0
+COVERPKG    := ./internal/...,./cmd/...
 
-all: lint test build
+# Use the locally installed toolchain (avoids partial auto-downloaded toolchains).
+export GOTOOLCHAIN ?= local
+
+.PHONY: all build test test-e2e cover cover-html lint fmt fmt-check vet vuln tools snapshot docs clean tidy
+
+all: fmt-check lint test
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o bin/$(BINARY) ./cmd/modjo
@@ -22,17 +29,38 @@ test:
 test-e2e:
 	go test -race ./cmd/modjo/ -run TestScripts -v
 
+cover:
+	go test -coverprofile=cover.out -covermode=atomic -coverpkg=$(COVERPKG) ./...
+	@go tool cover -func=cover.out | tail -1
+	@total=$$(go tool cover -func=cover.out | tail -1 | awk '{print $$3}' | tr -d '%'); \
+	awk -v t=$$total -v m=$(COVER_MIN) 'BEGIN { if (t+0 < m+0) { printf "FAIL: coverage %.1f%% < %.1f%%\n", t, m; exit 1 } else { printf "OK: coverage %.1f%% >= %.1f%%\n", t, m } }'
+
+cover-html: cover
+	go tool cover -html=cover.out -o cover.html
+	@echo "wrote cover.html"
+
 lint:
 	golangci-lint run ./...
 
-fmt:
-	gofmt -w ./internal ./cmd
+fmt: tools
+	gofumpt -w ./internal ./cmd
+	goimports -w ./internal ./cmd
+
+fmt-check: tools
+	@out=$$(gofumpt -l ./internal ./cmd); \
+	if [ -n "$$out" ]; then echo "gofumpt needed on:"; echo "$$out"; exit 1; fi
 
 vet:
 	go vet ./...
 
-vuln:
+vuln: tools
 	govulncheck ./...
+
+# Install the developer tooling this project standardizes on.
+tools:
+	@command -v gofumpt >/dev/null      || go install mvdan.cc/gofumpt@latest
+	@command -v goimports >/dev/null    || go install golang.org/x/tools/cmd/goimports@latest
+	@command -v govulncheck >/dev/null  || go install golang.org/x/vuln/cmd/govulncheck@latest
 
 snapshot:
 	goreleaser release --snapshot --clean
@@ -44,4 +72,4 @@ tidy:
 	go mod tidy
 
 clean:
-	rm -rf bin dist
+	rm -rf bin dist cover.out cover.html

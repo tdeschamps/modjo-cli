@@ -90,11 +90,8 @@ func (f *Factory) Config() (*config.Config, error) {
 
 // ActiveProfile returns the effective profile name (flag wins over config).
 func (f *Factory) ActiveProfile() (string, error) {
-	if f.Flags.Profile != "" {
-		return f.Flags.Profile, nil
-	}
-	if v := os.Getenv("MODJO_PROFILE"); v != "" {
-		return v, nil
+	if p := f.flagOrEnvProfile(); p != "" {
+		return p, nil
 	}
 	cfg, err := f.Config()
 	if err != nil {
@@ -103,17 +100,30 @@ func (f *Factory) ActiveProfile() (string, error) {
 	return cfg.ActiveProfile, nil
 }
 
+// flagOrEnvProfile returns the profile from --profile or MODJO_PROFILE, or "".
+func (f *Factory) flagOrEnvProfile() string {
+	if f.Flags.Profile != "" {
+		return f.Flags.Profile
+	}
+	return os.Getenv("MODJO_PROFILE")
+}
+
+// activeProfileFrom resolves the active profile against an already-loaded config
+// (no error path, since the config is in hand).
+func (f *Factory) activeProfileFrom(cfg *config.Config) string {
+	if p := f.flagOrEnvProfile(); p != "" {
+		return p
+	}
+	return cfg.ActiveProfile
+}
+
 // Resolver returns a config.Resolver bound to the active profile.
 func (f *Factory) Resolver() (config.Resolver, error) {
 	cfg, err := f.Config()
 	if err != nil {
 		return config.Resolver{}, err
 	}
-	prof, err := f.ActiveProfile()
-	if err != nil {
-		return config.Resolver{}, err
-	}
-	return config.Resolver{Config: cfg, Profile: prof}, nil
+	return config.Resolver{Config: cfg, Profile: f.activeProfileFrom(cfg)}, nil
 }
 
 // resolve is a convenience to resolve a single config key.
@@ -156,15 +166,15 @@ func (f *Factory) TokenSource() func() (string, error) {
 		if v := os.Getenv("MODJO_TOKEN"); v != "" {
 			return v, nil
 		}
+		cfg, err := f.Config()
+		if err != nil {
+			return "", err
+		}
 		store, err := f.CredentialStore()
 		if err != nil {
 			return "", err
 		}
-		prof, err := f.ActiveProfile()
-		if err != nil {
-			return "", err
-		}
-		cred, err := store.Get(prof)
+		cred, err := store.Get(f.activeProfileFrom(cfg))
 		if err != nil {
 			return "", ErrNotAuthenticated
 		}

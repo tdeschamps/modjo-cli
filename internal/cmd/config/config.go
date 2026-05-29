@@ -110,6 +110,7 @@ func newEditCmd(f *cmdutil.Factory) *cobra.Command {
 			if editor == "" {
 				editor = "vi"
 			}
+			// The editor is the user's own $EDITOR; opening their config in it is intended.
 			c := exec.Command(editor, path)
 			c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
 			return c.Run()

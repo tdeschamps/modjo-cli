@@ -21,6 +21,8 @@ func NewKeyringStore(fallbackPath string) *KeyringStore {
 	return &KeyringStore{fallback: NewFileStore(fallbackPath)}
 }
 
+// Get returns the credential for profile from the keychain, falling back to the
+// file store when the keychain is unavailable.
 func (s *KeyringStore) Get(profile string) (Credential, error) {
 	raw, err := keyring.Get(keyringService, profile)
 	if err != nil {
@@ -36,6 +38,7 @@ func (s *KeyringStore) Get(profile string) (Credential, error) {
 	return c, nil
 }
 
+// Set stores c for profile in the keychain, falling back to the file store.
 func (s *KeyringStore) Set(profile string, c Credential) error {
 	data, err := json.Marshal(c)
 	if err != nil {
@@ -47,6 +50,7 @@ func (s *KeyringStore) Set(profile string, c Credential) error {
 	return nil
 }
 
+// Delete removes the credential for profile from the keychain (and file store).
 func (s *KeyringStore) Delete(profile string) error {
 	err := keyring.Delete(keyringService, profile)
 	if err != nil {

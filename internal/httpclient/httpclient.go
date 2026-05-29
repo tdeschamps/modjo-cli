@@ -183,6 +183,7 @@ type backoff struct {
 }
 
 func defaultBackoff() backoff {
+	// Retry jitter is not security-sensitive; a fast PRNG is appropriate.
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	return backoff{base: 500 * time.Millisecond, max: 20 * time.Second, jitter: r.Float64}
 }

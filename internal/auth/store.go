@@ -54,6 +54,7 @@ type MemoryStore struct{ m map[string]Credential }
 // NewMemoryStore returns an empty in-memory store.
 func NewMemoryStore() *MemoryStore { return &MemoryStore{m: map[string]Credential{}} }
 
+// Get returns the credential stored for profile.
 func (s *MemoryStore) Get(profile string) (Credential, error) {
 	c, ok := s.m[profile]
 	if !ok {
@@ -62,8 +63,10 @@ func (s *MemoryStore) Get(profile string) (Credential, error) {
 	return c, nil
 }
 
+// Set stores c under profile.
 func (s *MemoryStore) Set(profile string, c Credential) error { s.m[profile] = c; return nil }
 
+// Delete removes the credential for profile.
 func (s *MemoryStore) Delete(profile string) error {
 	if _, ok := s.m[profile]; !ok {
 		return ErrNotFound
@@ -111,6 +114,7 @@ func (s *FileStore) save(m map[string]Credential) error {
 	return os.Rename(tmp, s.path)
 }
 
+// Get returns the credential stored for profile.
 func (s *FileStore) Get(profile string) (Credential, error) {
 	m, err := s.load()
 	if err != nil {
@@ -123,6 +127,7 @@ func (s *FileStore) Get(profile string) (Credential, error) {
 	return c, nil
 }
 
+// Set stores c under profile, preserving other profiles' credentials.
 func (s *FileStore) Set(profile string, c Credential) error {
 	m, err := s.load()
 	if err != nil {
@@ -132,6 +137,7 @@ func (s *FileStore) Set(profile string, c Credential) error {
 	return s.save(m)
 }
 
+// Delete removes the credential for profile.
 func (s *FileStore) Delete(profile string) error {
 	m, err := s.load()
 	if err != nil {

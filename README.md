@@ -1,10 +1,48 @@
+<div align="center">
+
 # modjo
 
-`modjo` is a single command-line tool that wraps the **Modjo REST API v2** and
-the **Modjo MCP server** behind one consistent, scriptable, agent-friendly
-interface. It feels like `gh`/`stripe`: predictable noun-verb commands, great
-`--help`, machine-readable output in pipes, human-readable in a terminal, and
-first-class auth.
+**One CLI for the Modjo REST API v2 and the Modjo MCP server — scriptable, agent-friendly, and at home in any terminal.**
+
+[![CI](https://github.com/tdeschamps/modjo-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/tdeschamps/modjo-cli/actions/workflows/ci.yml)
+[![Release](https://github.com/tdeschamps/modjo-cli/actions/workflows/release.yml/badge.svg)](https://github.com/tdeschamps/modjo-cli/actions/workflows/release.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/tdeschamps/modjo-cli.svg)](https://pkg.go.dev/github.com/tdeschamps/modjo-cli)
+[![Go Report Card](https://goreportcard.com/badge/github.com/tdeschamps/modjo-cli)](https://goreportcard.com/report/github.com/tdeschamps/modjo-cli)
+[![codecov](https://codecov.io/gh/tdeschamps/modjo-cli/branch/main/graph/badge.svg)](https://codecov.io/gh/tdeschamps/modjo-cli)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/tdeschamps/modjo-cli)](go.mod)
+[![Latest Release](https://img.shields.io/github/v/release/tdeschamps/modjo-cli?sort=semver)](https://github.com/tdeschamps/modjo-cli/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196.svg)](https://www.conventionalcommits.org)
+
+</div>
+
+---
+
+`modjo` wraps the **Modjo REST API v2** and the **Modjo MCP server** behind one
+consistent interface. It serves three audiences from a single static binary:
+
+- **Developers / integrators** — script exports, pipe JSON, wire CI jobs.
+- **Sales Ops / RevOps** — pull pipeline, call, and deal reports without code.
+- **AI / agent power users** — run `modjo ask` natural-language queries and
+  expose `modjo mcp serve` so any MCP client (Claude, Cursor, Codex) can drive
+  Modjo through the CLI.
+
+Design north star: feel like `gh`, `stripe`, and `sentry-cli` — predictable
+noun-verb commands, great `--help`, machine-readable output in pipes,
+human-readable in a TTY, and first-class auth.
+
+## Table of contents
+
+- [Install](#install)
+- [Quickstart](#quickstart)
+- [Commands](#commands)
+- [Output & scripting](#output--scripting)
+- [Authentication](#authentication)
+- [Configuration](#configuration)
+- [MCP integration](#mcp-integration)
+- [Exit codes](#exit-codes)
+- [Development](#development)
+- [License](#license)
 
 ## Install
 
@@ -15,64 +53,157 @@ brew install modjo/tap/modjo
 # Shell installer
 curl -fsSL https://cli.modjo.ai/install.sh | sh
 
-# From source
+# Scoop / winget (Windows)
+scoop install modjo
+winget install Modjo.CLI
+
+# Docker
+docker run --rm -e MODJO_API_KEY ghcr.io/modjo/cli calls list
+
+# From source (Go 1.24+)
 go install github.com/tdeschamps/modjo-cli/cmd/modjo@latest
 ```
+
+Prebuilt, signed binaries for `darwin/{amd64,arm64}`, `linux/{amd64,arm64}`, and
+`windows/amd64` are attached to every [release](https://github.com/tdeschamps/modjo-cli/releases).
 
 ## Quickstart
 
 ```sh
-# Authenticate (paste a key, or pipe it for CI)
+# 1. Authenticate (paste a key interactively, or pipe it in CI)
 modjo auth login --web
 echo "$MODJO_KEY" | modjo auth login --with-token
 modjo auth status
 
-# Pull this week's calls for an account, as CSV
+# 2. Pull this week's calls for an account, as CSV
 modjo accounts list --name "Contoso" --json --jq '.[0].crmId'   # -> 001ABC
-modjo calls list --account 001ABC --since 7d --all -o csv > calls.csv
+modjo calls list --account 001ABC --since 7d --all -o csv > contoso_calls.csv
 
-# Ask the AI about a deal
+# 3. Ask the AI about a deal
+modjo deals list --account 001ABC --status open --json --jq '.[0].crmId'   # -> 006XYZ
 modjo ask deal 006XYZ "What are the risks and the single best next step?" --agent DealBriefing
 
-# Wire the CLI as an MCP server for Claude Desktop
-modjo mcp config --client claude-desktop
+# 4. Wire the CLI as an MCP server for Claude Desktop
+modjo mcp config --client claude-desktop      # paste into claude_desktop_config.json
 modjo mcp serve
 
-# Raw escape hatch — anything the typed commands don't cover
+# 5. Raw escape hatch — anything the typed commands don't cover yet
 modjo api GET /calls --param "limit=50" --param "relations=summary" --paginate
 ```
 
+## Commands
+
+```
+modjo
+├── auth        login | logout | status | refresh | switch | token
+├── config      get | set | list | edit
+├── profiles    list | use
+├── calls       list | get | transcript | summary | export | open
+├── deals       list | get | open
+├── accounts    list | get | open
+├── contacts    list | get
+├── emails      list | get
+├── users       list | get | create | delete
+├── teams       list | get
+├── agents      list | get
+├── ask         call | deal | account   (natural language over the MCP)
+├── mcp         serve | tools | call | config
+├── api         raw authenticated request escape hatch
+├── doctor      connectivity & credential diagnostics
+├── completion  bash | zsh | fish | powershell
+├── docs        open the docs
+├── update      self-update
+└── version
+```
+
+Every `list` command shares the same contract: filter flags (`--account`,
+`--status`, `--since 30d`, `--amount-min`, …), `--limit`/`--all` pagination, and
+`get` accepts one or more IDs.
+
 ## Output & scripting
 
-- TTY → colorized tables. Piped/redirected → JSON. Override with
-  `-o table|json|csv|tsv|yaml` or `--json`.
-- Built-in `--jq` filter (no external `jq` needed).
-- `--columns a,b,c` to pick/order columns; `--limit`/`--all` for pagination.
-- Stable [exit codes](#exit-codes) for scripting.
+- **TTY** → colorized, aligned tables. **Piped/redirected** → JSON.
+- Override anytime with `-o table|json|csv|tsv|yaml` or the `--json` shorthand.
+- Built-in **`--jq`** filter (powered by [gojq](https://github.com/itchyny/gojq);
+  no external `jq` needed): `modjo deals list --json --jq '.[] | {name, amount}'`.
+- `--columns name,amount` to pick/order columns for tables and CSV.
+- Stable [exit codes](#exit-codes) for robust scripts.
+
+```console
+$ modjo deals list --status open --limit 2
+CRMID  NAME                ACCOUNT  STATUS  AMOUNT     CLOSE       SOURCE
+D1     Contoso – Platform  Contoso  Open    EUR 42000  2026-06-18  Inbound
+D2     Globex – Renewal    Globex   Open    EUR 18500  2026-06-25  Outbound
+
+$ modjo deals list --status open --json --jq '.[].amount' | paste -sd+ | bc
+60500
+```
+
+## Authentication
+
+`modjo` resolves the token in this order: `--api-key`/`--token` flag →
+`MODJO_API_KEY`/`MODJO_TOKEN` env → stored credential for the active profile.
+Secrets are stored in the **OS keychain** when available (macOS Keychain,
+Windows Credential Manager, libsecret/kwallet), with a `0600` file fallback.
+Keys are never printed back — `modjo auth status` shows only a masked
+fingerprint. OAuth (device + PKCE) flows are spec'd and ready to enable when
+Modjo ships public OAuth clients.
 
 ## Configuration
 
-Config lives at `~/.config/modjo/config.toml` (XDG-respecting). Settings resolve
-**flag → env → profile → built-in default**. Manage it with `modjo config` and
-`modjo profiles`. Useful env vars: `MODJO_API_KEY`, `MODJO_PROFILE`,
-`MODJO_BASE_URL`, `MODJO_MCP_URL`, `MODJO_OUTPUT`, `MODJO_NO_COLOR`.
+Config lives at `~/.config/modjo/config.toml` (XDG-respecting;
+`%APPDATA%\modjo\config.toml` on Windows). Any setting resolves
+**flag → env var → profile → built-in default**.
+
+```toml
+active_profile = "default"
+
+[profiles.default]
+workspace     = "acme-eu"
+base_url      = "https://api.modjo.ai/v2"
+output        = "table"
+default_limit = 50
+```
+
+Manage it with `modjo config get/set/list/edit` and `modjo profiles list/use`.
+Relevant env vars: `MODJO_API_KEY`, `MODJO_TOKEN`, `MODJO_PROFILE`,
+`MODJO_BASE_URL`, `MODJO_MCP_URL`, `MODJO_OUTPUT`, `MODJO_NO_COLOR`,
+`MODJO_LANGUAGE`, `MODJO_DEBUG`.
+
+## MCP integration
+
+`modjo mcp serve` runs a local MCP server that re-exposes the Modjo tools,
+authenticating upstream with your stored credential — so MCP clients never touch
+the raw key and need no `mcp-remote` shim. `modjo mcp config --client cursor`
+prints a ready-to-paste snippet; `modjo mcp tools` and `modjo mcp call` are there
+for inspection and one-off scripted tool calls.
 
 ## Exit codes
 
-| Code | Meaning | | Code | Meaning |
-|---|---|---|---|---|
-| 0 | success | | 5 | not found (404) |
-| 1 | generic error | | 6 | rate limited (429) |
-| 2 | usage / bad flags | | 7 | validation (422) |
-| 3 | auth required (401) | | 8 | upstream/server (5xx) |
-| 4 | forbidden (403) | | 124 | timed out |
+| Code | Meaning              | Code | Meaning                 |
+| ---- | -------------------- | ---- | ----------------------- |
+| `0`  | success              | `5`  | not found (404)         |
+| `1`  | generic error        | `6`  | rate limited (429)      |
+| `2`  | usage / bad flags    | `7`  | validation (422)        |
+| `3`  | auth required (401)  | `8`  | upstream / server (5xx) |
+| `4`  | forbidden (403)      | `124`| operation timed out     |
 
 ## Development
 
-Built test-first in Go. See `CONTRIBUTING.md` and `ARCHITECTURE.md`.
+Built **test-first** in Go behind interface seams (see
+[`ARCHITECTURE.md`](ARCHITECTURE.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md)).
 
 ```sh
-make test    # go test -race ./...
-make build   # ./bin/modjo
-make lint
+make test       # go test -race ./...
+make cover      # coverage profile + total (fails under the gate)
+make lint       # golangci-lint
+make fmt        # gofumpt + goimports
+make build      # ./bin/modjo
 ```
+
+The CI gate runs `gofumpt`, `golangci-lint`, `go vet`, `govulncheck`, the full
+race-enabled test suite (unit + `testscript` e2e), and a cross-compile matrix.
+
+## License
+
+[MIT](LICENSE) © Thomas Descamps

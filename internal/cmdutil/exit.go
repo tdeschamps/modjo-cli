@@ -3,6 +3,7 @@ package cmdutil
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"github.com/tdeschamps/modjo-cli/internal/api"
 )
@@ -75,15 +76,15 @@ func ExitCodeForError(err error) int {
 	var apiErr *api.Error
 	if errors.As(err, &apiErr) {
 		switch apiErr.StatusCode {
-		case 401:
+		case http.StatusUnauthorized:
 			return ExitAuth
-		case 403:
+		case http.StatusForbidden:
 			return ExitForbidden
-		case 404:
+		case http.StatusNotFound:
 			return ExitNotFound
-		case 422:
+		case http.StatusUnprocessableEntity:
 			return ExitValidation
-		case 429:
+		case http.StatusTooManyRequests:
 			return ExitRateLimit
 		}
 		if apiErr.StatusCode >= 500 && apiErr.StatusCode <= 599 {

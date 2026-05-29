@@ -19,10 +19,11 @@ jobs:
           go-version: stable
           cache: true
 
-      - name: gofmt
+      - name: gofumpt
         run: |
-          out=$(gofmt -l ./internal ./cmd)
-          if [ -n "$out" ]; then echo "gofmt needed on:"; echo "$out"; exit 1; fi
+          go install mvdan.cc/gofumpt@latest
+          out=$(gofumpt -l ./internal ./cmd)
+          if [ -n "$out" ]; then echo "gofumpt needed on:"; echo "$out"; exit 1; fi
 
       - name: vet
         run: go vet ./...
@@ -39,6 +40,15 @@ jobs:
 
       - name: test (race)
         run: go test -race ./...
+
+      - name: coverage gate
+        run: make cover
+
+      - name: upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: cover.out
+        continue-on-error: true
 
   cross-compile:
     name: cross-compile smoke

@@ -11,6 +11,8 @@ import (
 func newBaseTransport(insecure bool) http.RoundTripper {
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	if insecure {
+		// Reachable only via the opt-in --insecure flag (self-hosted/proxy
+		// debugging), for which the command layer prints a loud warning.
 		if t.TLSClientConfig == nil {
 			t.TLSClientConfig = &tls.Config{}
 		}

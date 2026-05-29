@@ -93,6 +93,7 @@ func buildBody(f *cmdutil.Factory, fields []string, input string) ([]byte, error
 		if input == "-" {
 			return f.IOStreams.ReadAllStdin()
 		}
+		// The request body path is explicitly supplied by the user via --input.
 		return os.ReadFile(input)
 	}
 	if len(fields) == 0 {
