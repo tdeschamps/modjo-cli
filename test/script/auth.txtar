@@ -1,0 +1,12 @@
+# Logging in with a token from stdin validates against /me and stores the credential.
+stdin key.txt
+exec modjo auth login --with-token
+stderr 'Logged in'
+
+# auth status shows a masked fingerprint, never the raw key.
+exec modjo auth status
+stdout 'Method:'
+! stdout 'supersecretkey'
+
+-- key.txt --
+supersecretkey1234

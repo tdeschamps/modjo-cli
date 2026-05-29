@@ -1,0 +1,30 @@
+name: Nightly contract tests
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: contract smoke (sandbox)
+    runs-on: ubuntu-latest
+    # Gated on a sandbox key being available; never runs for forks.
+    if: ${{ github.repository == 'tdeschamps/modjo-cli' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: contract tests
+        env:
+          MODJO_API_KEY: ${{ secrets.MODJO_SANDBOX_API_KEY }}
+        run: |
+          if [ -z "$MODJO_API_KEY" ]; then
+            echo "No sandbox key configured; skipping contract tests."
+            exit 0
+          fi
+          go test -tags=contract ./... -run Contract -v

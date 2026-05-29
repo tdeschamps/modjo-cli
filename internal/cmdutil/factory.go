@@ -252,6 +252,6 @@ func (f *Factory) EffectiveLimit() (int, error) {
 		return 0, err
 	}
 	n := config.DefaultLimit
-	fmt.Sscanf(raw, "%d", &n)
+	_, _ = fmt.Sscanf(raw, "%d", &n)
 	return n, nil
 }

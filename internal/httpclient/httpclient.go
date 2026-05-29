@@ -40,7 +40,7 @@ func New(opt Options) *http.Client {
 		base = newBaseTransport(opt.Insecure)
 	}
 
-	var rt http.RoundTripper = base
+	rt := base
 
 	if opt.MaxRetries > 0 {
 		rt = &retryRoundTripper{

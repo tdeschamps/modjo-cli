@@ -1,0 +1,38 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - unconvert
+    - bodyclose
+  settings:
+    errcheck:
+      exclude-functions:
+        # Writing to our own buffers/streams effectively never fails and would
+        # bury commands in noise; this matches the gh CLI's convention.
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (io.Closer).Close
+        - (io.ReadCloser).Close
+  exclusions:
+    rules:
+      # Test helpers intentionally ignore some errors and don't drain bodies.
+      - path: _test\.go
+        linters:
+          - errcheck
+          - bodyclose
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

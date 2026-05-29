@@ -47,7 +47,7 @@ func stubMCP(t *testing.T) *httptest.Server {
 }
 
 func writeResult(w http.ResponseWriter, id json.RawMessage, result json.RawMessage) {
-	resp := map[string]any{"jsonrpc": "2.0", "id": json.RawMessage(id), "result": result}
+	resp := map[string]any{"jsonrpc": "2.0", "id": id, "result": result}
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
@@ -91,7 +91,7 @@ func TestErrorResponse(t *testing.T) {
 			writeResult(w, req.ID, json.RawMessage(`{}`))
 			return
 		}
-		resp := map[string]any{"jsonrpc": "2.0", "id": json.RawMessage(req.ID), "error": map[string]any{"code": -32602, "message": "unknown tool"}}
+		resp := map[string]any{"jsonrpc": "2.0", "id": req.ID, "error": map[string]any{"code": -32602, "message": "unknown tool"}}
 		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()

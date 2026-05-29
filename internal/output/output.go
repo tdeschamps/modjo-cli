@@ -121,7 +121,7 @@ func (p *Printer) renderYAML(raw any) error {
 		}
 		enc := yaml.NewEncoder(p.Out)
 		enc.SetIndent(2)
-		defer enc.Close()
+		defer func() { _ = enc.Close() }()
 		for _, r := range results {
 			if err := enc.Encode(r); err != nil {
 				return err
@@ -131,7 +131,7 @@ func (p *Printer) renderYAML(raw any) error {
 	}
 	enc := yaml.NewEncoder(p.Out)
 	enc.SetIndent(2)
-	defer enc.Close()
+	defer func() { _ = enc.Close() }()
 	return enc.Encode(toGeneric(raw))
 }
 

@@ -117,7 +117,7 @@ func Save(path string, cfg *Config) error {
 	}
 	enc := toml.NewEncoder(f)
 	if err := enc.Encode(cfg); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	if err := f.Close(); err != nil {

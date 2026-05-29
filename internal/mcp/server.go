@@ -56,7 +56,7 @@ func (s *Server) ServeStdio(ctx context.Context, in io.Reader, out io.Writer) er
 		if isNotification {
 			continue
 		}
-		resp := map[string]any{"jsonrpc": "2.0", "id": json.RawMessage(req.ID)}
+		resp := map[string]any{"jsonrpc": "2.0", "id": req.ID}
 		if rerr != nil {
 			resp["error"] = map[string]any{"code": -32000, "message": rerr.Error()}
 		} else {
@@ -97,7 +97,7 @@ func (s *Server) handle(ctx context.Context, req rpcRequest) (any, error) {
 			return nil, err
 		}
 		// raw is already a tools/call result envelope; pass it through.
-		return json.RawMessage(raw), nil
+		return raw, nil
 	default:
 		return nil, fmt.Errorf("method not found: %s", req.Method)
 	}
