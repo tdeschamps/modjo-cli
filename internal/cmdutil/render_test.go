@@ -60,7 +60,7 @@ func TestCollectAndRenderError(t *testing.T) {
 	}
 }
 
-func TestRenderSliceAndOne(t *testing.T) {
+func TestRenderSlice(t *testing.T) {
 	f, out := renderFactory(t)
 	if err := RenderSlice(f, []row{{"x"}}, fields()); err != nil {
 		t.Fatal(err)
@@ -68,13 +68,24 @@ func TestRenderSliceAndOne(t *testing.T) {
 	if !strings.Contains(out.String(), `"name": "x"`) {
 		t.Errorf("RenderSlice: %s", out.String())
 	}
+}
 
-	f2, out2 := renderFactory(t)
-	if err := RenderOne(f2, row{"y"}, fields()); err != nil {
+func TestGetAndRender(t *testing.T) {
+	f, out := renderFactory(t)
+	get := func(_ context.Context, id string) (row, error) { return row{Name: id}, nil }
+	if err := GetAndRender(context.Background(), f, []string{"a", "b"}, get, fields()); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out2.String(), `"name": "y"`) {
-		t.Errorf("RenderOne: %s", out2.String())
+	if !strings.Contains(out.String(), `"name": "a"`) || !strings.Contains(out.String(), `"name": "b"`) {
+		t.Errorf("GetAndRender: %s", out.String())
+	}
+}
+
+func TestGetAndRenderError(t *testing.T) {
+	f, _ := renderFactory(t)
+	get := func(_ context.Context, id string) (row, error) { return row{}, errors.New("boom") }
+	if err := GetAndRender(context.Background(), f, []string{"a"}, get, fields()); err == nil || err.Error() != "boom" {
+		t.Errorf("want boom, got %v", err)
 	}
 }
 

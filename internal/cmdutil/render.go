@@ -22,6 +22,21 @@ func CollectAndRender[T any](ctx context.Context, f *Factory, seq iter.Seq2[T, e
 	return RenderSlice(f, items, fields)
 }
 
+// GetAndRender fetches one object per id (in order), then renders the lot. It
+// centralizes the "get one-or-more IDs → render" flow shared by every resource
+// command's `get` subcommand.
+func GetAndRender[T any](ctx context.Context, f *Factory, args []string, get func(context.Context, string) (T, error), fields []output.Field) error {
+	items := make([]T, 0, len(args))
+	for _, id := range args {
+		item, err := get(ctx, id)
+		if err != nil {
+			return err
+		}
+		items = append(items, item)
+	}
+	return RenderSlice(f, items, fields)
+}
+
 // RenderSlice renders an already-collected slice of items.
 func RenderSlice[T any](f *Factory, items []T, fields []output.Field) error {
 	p, err := f.Printer()
@@ -29,13 +44,4 @@ func RenderSlice[T any](f *Factory, items []T, fields []output.Field) error {
 		return err
 	}
 	return output.Render(p, items, fields)
-}
-
-// RenderOne renders a single object (not wrapped in an array).
-func RenderOne[T any](f *Factory, item T, fields []output.Field) error {
-	p, err := f.Printer()
-	if err != nil {
-		return err
-	}
-	return p.Output(item, []any{item}, fields)
 }

@@ -55,7 +55,8 @@ type Factory struct {
 	// Transport overrides the base HTTP transport (tests).
 	Transport http.RoundTripper
 
-	cfg *config.Config
+	cfg         *config.Config
+	tokenSource func() (string, error)
 }
 
 // credentialsPath returns the credentials file path next to the config file.
@@ -153,11 +154,20 @@ func (f *Factory) CredentialStore() (auth.Store, error) {
 }
 
 // TokenSource resolves the bearer token following flag → env → stored cred.
-// The stored-credential lookup (which may hit the OS keychain) is resolved at
-// most once per returned closure via sync.Once, so a paginated `--all` export
-// doesn't query the keychain once per HTTP request. Flag/env overrides are
-// re-read each call so they always win and stay cheap.
+// The closure is built once and cached on the Factory, and the
+// stored-credential lookup (which may hit the OS keychain) is resolved at most
+// once via sync.Once — so neither a paginated `--all` export nor a command that
+// builds several clients (e.g. doctor → API + MCP) queries the keychain more
+// than once. Flag/env overrides are re-read each call so they always win and
+// stay cheap.
 func (f *Factory) TokenSource() func() (string, error) {
+	if f.tokenSource == nil {
+		f.tokenSource = f.newTokenSource()
+	}
+	return f.tokenSource
+}
+
+func (f *Factory) newTokenSource() func() (string, error) {
 	var (
 		once   sync.Once
 		stored string

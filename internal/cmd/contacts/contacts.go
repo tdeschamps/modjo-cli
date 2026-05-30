@@ -63,15 +63,7 @@ func newGetCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var out []api.Contact
-			for _, id := range args {
-				c, err := client.GetContact(cmd.Context(), id)
-				if err != nil {
-					return err
-				}
-				out = append(out, c)
-			}
-			return cmdutil.RenderSlice(f, out, contactFields())
+			return cmdutil.GetAndRender(cmd.Context(), f, args, client.GetContact, contactFields())
 		},
 	}
 }

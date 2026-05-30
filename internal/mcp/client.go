@@ -122,17 +122,17 @@ func (c *Client) ensureInit(ctx context.Context) error {
 	return nil
 }
 
-// rpc sends a JSON-RPC request and returns the result payload.
-func (c *Client) rpc(ctx context.Context, method string, params json.RawMessage) (json.RawMessage, error) {
-	reqBody, _ := json.Marshal(rpcRequest{JSONRPC: "2.0", ID: c.nextID(), Method: method, Params: params})
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(reqBody))
+// newRequest builds a POST to the MCP endpoint with the standard JSON-RPC
+// headers, the current session id, and (when configured) the bearer token.
+func (c *Client) newRequest(ctx context.Context, body []byte) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Accept", "application/json, text/event-stream")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
 	if c.sessionID != "" {
-		httpReq.Header.Set("Mcp-Session-Id", c.sessionID)
+		req.Header.Set("Mcp-Session-Id", c.sessionID)
 	}
 	if c.token != nil {
 		tok, err := c.token()
@@ -140,8 +140,18 @@ func (c *Client) rpc(ctx context.Context, method string, params json.RawMessage)
 			return nil, err
 		}
 		if tok != "" {
-			httpReq.Header.Set("Authorization", "Bearer "+tok)
+			req.Header.Set("Authorization", "Bearer "+tok)
 		}
+	}
+	return req, nil
+}
+
+// rpc sends a JSON-RPC request and returns the result payload.
+func (c *Client) rpc(ctx context.Context, method string, params json.RawMessage) (json.RawMessage, error) {
+	reqBody, _ := json.Marshal(rpcRequest{JSONRPC: "2.0", ID: c.nextID(), Method: method, Params: params})
+	httpReq, err := c.newRequest(ctx, reqBody)
+	if err != nil {
+		return nil, err
 	}
 	resp, err := c.http.Do(httpReq)
 	if err != nil {
@@ -183,19 +193,9 @@ func (c *Client) rpc(ctx context.Context, method string, params json.RawMessage)
 // notify sends a notification (no id, no response body expected).
 func (c *Client) notify(ctx context.Context, method string) error {
 	body, _ := json.Marshal(rpcRequest{JSONRPC: "2.0", Method: method})
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(body))
+	httpReq, err := c.newRequest(ctx, body)
 	if err != nil {
 		return err
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Accept", "application/json, text/event-stream")
-	if c.sessionID != "" {
-		httpReq.Header.Set("Mcp-Session-Id", c.sessionID)
-	}
-	if c.token != nil {
-		if tok, err := c.token(); err == nil && tok != "" {
-			httpReq.Header.Set("Authorization", "Bearer "+tok)
-		}
 	}
 	resp, err := c.http.Do(httpReq)
 	if err != nil {

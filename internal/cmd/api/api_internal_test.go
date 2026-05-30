@@ -1,7 +1,6 @@
 package api
 
 import (
-	"net/url"
 	"strings"
 	"testing"
 
@@ -18,15 +17,6 @@ func TestIsHTTPMethod(t *testing.T) {
 	}
 	if isHTTPMethod("/calls") {
 		t.Error("/calls is not a method")
-	}
-}
-
-func TestCloneValues(t *testing.T) {
-	v := url.Values{"a": {"1", "2"}, "b": {"3"}}
-	c := cloneValues(v)
-	c.Add("a", "x")
-	if len(v["a"]) != 2 {
-		t.Error("clone should not mutate original")
 	}
 }
 

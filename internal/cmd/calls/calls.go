@@ -3,6 +3,7 @@
 package calls
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -113,15 +114,10 @@ func newGetCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			rels := splitCSV(relations)
-			var calls []api.Call
-			for _, id := range args {
-				c, err := client.GetCall(cmd.Context(), id, rels...)
-				if err != nil {
-					return err
-				}
-				calls = append(calls, c)
+			get := func(ctx context.Context, id string) (api.Call, error) {
+				return client.GetCall(ctx, id, rels...)
 			}
-			return cmdutil.RenderSlice(f, calls, callFields())
+			return cmdutil.GetAndRender(cmd.Context(), f, args, get, callFields())
 		},
 	}
 	cmd.Flags().StringVar(&relations, "relations", "", "Comma-separated relations (transcript,summary,deal,account)")

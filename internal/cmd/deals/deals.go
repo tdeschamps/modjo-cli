@@ -96,15 +96,7 @@ func newGetCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var deals []api.Deal
-			for _, id := range args {
-				d, err := client.GetDeal(cmd.Context(), id)
-				if err != nil {
-					return err
-				}
-				deals = append(deals, d)
-			}
-			return cmdutil.RenderSlice(f, deals, dealFields())
+			return cmdutil.GetAndRender(cmd.Context(), f, args, client.GetDeal, dealFields())
 		},
 	}
 }

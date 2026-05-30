@@ -1,6 +1,7 @@
 package cmdutil
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -107,8 +108,9 @@ func TestRenderBadFormatBranches(t *testing.T) {
 	if err := CollectAndRender(t.Context(), f, seqOf([]row{{"a"}}, nil), fields()); err == nil {
 		t.Error("CollectAndRender should error on bad format")
 	}
-	if err := RenderOne(f, row{"a"}, fields()); err == nil {
-		t.Error("RenderOne should error on bad format")
+	get := func(_ context.Context, id string) (row, error) { return row{Name: id}, nil }
+	if err := GetAndRender(t.Context(), f, []string{"a"}, get, fields()); err == nil {
+		t.Error("GetAndRender should error on bad format")
 	}
 }
 

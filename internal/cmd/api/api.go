@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"strings"
@@ -116,7 +117,7 @@ func paginateAll(cmd *cobra.Command, client *modjoapi.Client, method, path strin
 	var all []json.RawMessage
 	cursor := ""
 	for {
-		q := cloneValues(query)
+		q := maps.Clone(query)
 		if cursor != "" {
 			q.Set("cursor", cursor)
 		}
@@ -160,12 +161,4 @@ func isHTTPMethod(s string) bool {
 		return true
 	}
 	return false
-}
-
-func cloneValues(v url.Values) url.Values {
-	out := url.Values{}
-	for k, vals := range v {
-		out[k] = append([]string{}, vals...)
-	}
-	return out
 }
