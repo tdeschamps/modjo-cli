@@ -56,9 +56,10 @@ vet:
 vuln: tools
 	govulncheck ./...
 
-# Install the developer tooling this project standardizes on.
+# Install the developer tooling this project standardizes on. gofumpt is pinned
+# to match CI exactly (and to stay buildable on the go 1.24 baseline).
 tools:
-	@command -v gofumpt >/dev/null      || go install mvdan.cc/gofumpt@latest
+	@command -v gofumpt >/dev/null      || go install mvdan.cc/gofumpt@v0.7.0
 	@command -v goimports >/dev/null    || go install golang.org/x/tools/cmd/goimports@latest
 	@command -v govulncheck >/dev/null  || go install golang.org/x/vuln/cmd/govulncheck@latest
 

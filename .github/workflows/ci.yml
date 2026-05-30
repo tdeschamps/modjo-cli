@@ -21,7 +21,7 @@ jobs:
 
       - name: gofumpt
         run: |
-          go install mvdan.cc/gofumpt@latest
+          go install mvdan.cc/gofumpt@v0.7.0
           out=$(gofumpt -l ./internal ./cmd)
           if [ -n "$out" ]; then echo "gofumpt needed on:"; echo "$out"; exit 1; fi
 
@@ -31,7 +31,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          version: v2.5.0
 
       - name: govulncheck
         run: |
