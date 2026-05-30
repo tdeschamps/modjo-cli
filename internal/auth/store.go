@@ -150,9 +150,11 @@ func (s *FileStore) Delete(profile string) error {
 	return s.save(m)
 }
 
-// Fingerprint masks a secret for display: it keeps a recognizable prefix and
-// the last four characters, e.g. "mjo_live_…a91f". Short or empty values are
-// fully redacted.
+// Fingerprint masks a secret for display: it always hides the body of the
+// token, revealing only a recognizable scheme prefix (e.g. "mjo_live_") when
+// present and the last four characters — like "mjo_live_…a91f" or "…a91f".
+// Short or empty values are fully redacted. It never reveals the secret body,
+// regardless of token shape.
 func Fingerprint(token string) string {
 	if token == "" {
 		return ""
@@ -161,12 +163,11 @@ func Fingerprint(token string) string {
 		return "…"
 	}
 	last4 := token[len(token)-4:]
-	// Keep up to the second underscore as a readable prefix (mjo_live_).
-	prefix := token
+	// Only reveal a leading segment when it's a recognizable, non-secret scheme
+	// prefix (up to a second underscore that sits before the last four chars).
+	prefix := ""
 	if i := nthIndex(token, "_", 2); i > 0 && i < len(token)-4 {
 		prefix = token[:i+1]
-	} else if len(token) > 12 {
-		prefix = token[:8]
 	}
 	return prefix + "…" + last4
 }

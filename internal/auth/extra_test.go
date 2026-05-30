@@ -45,10 +45,31 @@ func TestFileStoreSaveMkdirError(t *testing.T) {
 	}
 }
 
-func TestFingerprintNoUnderscore(t *testing.T) {
-	// A long token without two underscores uses the 8-char prefix path.
-	got := Fingerprint("abcdefghijklmnop")
-	if got != "abcdefgh…mnop" {
-		t.Errorf("Fingerprint = %q", got)
+func TestFingerprintNeverLeaksBody(t *testing.T) {
+	// A token without a recognizable scheme prefix must reveal only the last
+	// four characters — never the body (regression for the full-secret leak).
+	for _, tok := range []string{
+		"abcdefghijklmnop",      // 16 chars, no underscore
+		"secrettoken9",          // 12 chars
+		"sk-thisIsASecretValue", // dash prefix, not underscore-scheme
+	} {
+		got := Fingerprint(tok)
+		body := tok[:len(tok)-4]
+		if got != "…"+tok[len(tok)-4:] {
+			t.Errorf("Fingerprint(%q) = %q, want %q", tok, got, "…"+tok[len(tok)-4:])
+		}
+		// Defense in depth: the masked output must not contain the secret body.
+		if len(body) > 4 && containsSub(got, body) {
+			t.Errorf("Fingerprint(%q) leaked the body: %q", tok, got)
+		}
 	}
+}
+
+func containsSub(s, sub string) bool {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
 }

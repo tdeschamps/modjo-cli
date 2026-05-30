@@ -155,9 +155,10 @@ func newTranscriptCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if format == output.FormatJSON {
-				p, _ := f.Printer()
-				return p.PrintJSON(call.Transcript)
+			// Any machine format (json/csv/tsv/yaml) renders the raw blocks via
+			// the shared Printer; only the table format gets the human layout.
+			if format != output.FormatTable {
+				return cmdutil.RenderSlice(f, call.Transcript, transcriptFields())
 			}
 			io := f.IOStreams
 			for _, b := range call.Transcript {
@@ -274,7 +275,22 @@ func truncate(s string, n int) string {
 	return string(r[:n-1]) + "…"
 }
 
+// transcriptFields describes the columns for machine-format transcript output.
+func transcriptFields() []output.Field {
+	return []output.Field{
+		{Name: "START", Extract: func(v any) string { return fmtTime(v.(api.TranscriptBlock).StartTime) }},
+		{Name: "END", Extract: func(v any) string { return fmtTime(v.(api.TranscriptBlock).EndTime) }},
+		{Name: "SPEAKER", Extract: func(v any) string { return v.(api.TranscriptBlock).SpeakerName }},
+		{Name: "CONTENT", Extract: func(v any) string { return v.(api.TranscriptBlock).Content }},
+	}
+}
+
+// fmtTime renders a second offset as mm:ss, or hh:mm:ss for calls past an hour.
 func fmtTime(sec float64) string {
 	total := int(sec)
-	return fmt.Sprintf("%02d:%02d", total/60, total%60)
+	h, m, s := total/3600, (total%3600)/60, total%60
+	if h > 0 {
+		return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
+	}
+	return fmt.Sprintf("%02d:%02d", m, s)
 }

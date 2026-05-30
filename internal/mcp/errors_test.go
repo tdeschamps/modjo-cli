@@ -87,6 +87,24 @@ func TestServerCallBadParams(t *testing.T) {
 	}
 }
 
+func TestRPC202ForRequestIsError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(readBody(r), "initialize") {
+			w.Header().Set("Content-Type", "application/json")
+			writeResult(w, []byte("1"), []byte(`{}`))
+			return
+		}
+		// A real request gets 202 with no body — must surface as an error,
+		// not a nil result that the caller nil-derefs on.
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+	c := newClient(srv.URL)
+	if _, err := c.Tools(context.Background()); err == nil {
+		t.Error("202 for a request should be an error, not an empty result")
+	}
+}
+
 func TestServerPing(t *testing.T) {
 	srv := stubMCP(t)
 	defer srv.Close()

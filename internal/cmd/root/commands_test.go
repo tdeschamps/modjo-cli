@@ -2,6 +2,7 @@ package root_test
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -332,6 +333,41 @@ func TestAPICommand(t *testing.T) {
 	// bad param
 	if _, _, err := run("api", "GET", "/deals", "--param", "novalue"); err == nil {
 		t.Error("expected bad --param error")
+	}
+}
+
+func TestAPIPaginateSendsBody(t *testing.T) {
+	var gotBodies []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		gotBodies = append(gotBodies, string(b))
+		cursor := r.URL.Query().Get("cursor")
+		if cursor == "" {
+			_, _ = w.Write([]byte(`{"values":[{"id":1}],"pagination":{"nextCursor":"p2"}}`))
+		} else {
+			_, _ = w.Write([]byte(`{"values":[{"id":2}],"pagination":{"nextCursor":""}}`))
+		}
+	}))
+	defer srv.Close()
+	t.Setenv("MODJO_BASE_URL", srv.URL)
+	store := auth.NewMemoryStore()
+	_ = store.Set("default", auth.Credential{Token: "t"})
+	io2, _, out, _ := iostreams.Test()
+	f := &cmdutil.Factory{IOStreams: io2, Flags: &cmdutil.GlobalFlags{}, Clock: text.FixedClock(time.Now()), ConfigPath: t.TempDir() + "/c.toml", CredStore: store}
+	cmd := root.NewCmdRoot(f)
+	cmd.SetArgs([]string{"api", "POST", "/search", "--paginate", "--field", "q=foo"})
+	cmd.SetOut(out)
+	cmd.SetErr(out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if len(gotBodies) != 2 {
+		t.Fatalf("expected 2 page requests, got %d", len(gotBodies))
+	}
+	for i, b := range gotBodies {
+		if !strings.Contains(b, `"q":"foo"`) {
+			t.Errorf("page %d request body missing payload: %q", i, b)
+		}
 	}
 }
 

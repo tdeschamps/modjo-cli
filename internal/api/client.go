@@ -136,11 +136,11 @@ func paginate[T any](ctx context.Context, c *Client, path string, q queryFunc, l
 					if !yield(zero, fmt.Errorf("decode %s item: %w", path, err)) {
 						return
 					}
-					continue
-				}
-				if !yield(item, nil) {
+				} else if !yield(item, nil) {
 					return
 				}
+				// Count every yield (success or decode error) toward the limit
+				// so a fully-malformed page can't make us page the whole dataset.
 				emitted++
 				if limit > 0 && emitted >= limit {
 					return

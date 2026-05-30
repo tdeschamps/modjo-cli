@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/tdeschamps/modjo-cli/internal/api"
 	"github.com/tdeschamps/modjo-cli/internal/auth"
@@ -152,7 +153,16 @@ func (f *Factory) CredentialStore() (auth.Store, error) {
 }
 
 // TokenSource resolves the bearer token following flag → env → stored cred.
+// The stored-credential lookup (which may hit the OS keychain) is resolved at
+// most once per returned closure via sync.Once, so a paginated `--all` export
+// doesn't query the keychain once per HTTP request. Flag/env overrides are
+// re-read each call so they always win and stay cheap.
 func (f *Factory) TokenSource() func() (string, error) {
+	var (
+		once   sync.Once
+		stored string
+		stErr  error
+	)
 	return func() (string, error) {
 		if f.Flags.APIKey != "" {
 			return f.Flags.APIKey, nil
@@ -166,19 +176,25 @@ func (f *Factory) TokenSource() func() (string, error) {
 		if v := os.Getenv("MODJO_TOKEN"); v != "" {
 			return v, nil
 		}
-		cfg, err := f.Config()
-		if err != nil {
-			return "", err
-		}
-		store, err := f.CredentialStore()
-		if err != nil {
-			return "", err
-		}
-		cred, err := store.Get(f.activeProfileFrom(cfg))
-		if err != nil {
-			return "", ErrNotAuthenticated
-		}
-		return cred.Token, nil
+		once.Do(func() {
+			cfg, err := f.Config()
+			if err != nil {
+				stErr = err
+				return
+			}
+			store, err := f.CredentialStore()
+			if err != nil {
+				stErr = err
+				return
+			}
+			cred, err := store.Get(f.activeProfileFrom(cfg))
+			if err != nil {
+				stErr = ErrNotAuthenticated
+				return
+			}
+			stored = cred.Token
+		})
+		return stored, stErr
 	}
 }
 
@@ -245,7 +261,17 @@ func (f *Factory) OutputFormat() (output.Format, error) {
 	if f.Flags.Output == "" && raw == config.DefaultOutput && !f.IOStreams.IsStdoutTTY() {
 		return output.FormatJSON, nil
 	}
-	return output.ParseFormat(raw)
+	format, err := output.ParseFormat(raw)
+	if err != nil {
+		return "", err
+	}
+	// --jq only applies to structured output. If the user asked to filter but
+	// the effective format is tabular, promote to JSON so the filter isn't
+	// silently dropped (yaml is left alone — gojq results render fine as YAML).
+	if f.Flags.JQ != "" && format != output.FormatJSON && format != output.FormatYAML {
+		return output.FormatJSON, nil
+	}
+	return format, nil
 }
 
 // EffectiveLimit returns the result cap: --all → 0 (unbounded), else --limit or

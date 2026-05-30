@@ -57,6 +57,11 @@ func TestFingerprint(t *testing.T) {
 		{"mjo_live_1234567890abcdef", "mjo_live_…cdef"},
 		{"short", "…"},
 		{"", ""},
+		// No recognizable scheme prefix: reveal only the last four, never the body.
+		{"secrettoken9", "…ken9"},     // 12 chars, no 2nd underscore
+		{"123456789012", "…9012"},     // 12 chars, digits only
+		{"abcdefghijklmnop", "…mnop"}, // 16 chars, no underscore
+		{"abcdefgh", "…"},             // exactly 8 → fully redacted
 	}
 	for _, tc := range cases {
 		if got := Fingerprint(tc.in); got != tc.want {

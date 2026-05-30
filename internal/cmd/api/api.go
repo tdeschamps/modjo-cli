@@ -71,7 +71,7 @@ func NewCmdAPI(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			if paginate {
-				return paginateAll(cmd, client, method, path, query, p)
+				return paginateAll(cmd, client, method, path, query, body, p)
 			}
 
 			raw, err := client.Raw(cmd.Context(), method, path, query, body)
@@ -112,7 +112,7 @@ func buildBody(f *cmdutil.Factory, fields []string, input string) ([]byte, error
 
 // paginateAll follows the {values, pagination:{nextCursor}} envelope and prints
 // the concatenated values as a single JSON array.
-func paginateAll(cmd *cobra.Command, client *modjoapi.Client, method, path string, query url.Values, p *output.Printer) error {
+func paginateAll(cmd *cobra.Command, client *modjoapi.Client, method, path string, query url.Values, body []byte, p *output.Printer) error {
 	var all []json.RawMessage
 	cursor := ""
 	for {
@@ -120,7 +120,7 @@ func paginateAll(cmd *cobra.Command, client *modjoapi.Client, method, path strin
 		if cursor != "" {
 			q.Set("cursor", cursor)
 		}
-		raw, err := client.Raw(cmd.Context(), method, path, q, nil)
+		raw, err := client.Raw(cmd.Context(), method, path, q, body)
 		if err != nil {
 			return err
 		}

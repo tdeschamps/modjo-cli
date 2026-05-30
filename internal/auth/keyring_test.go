@@ -59,6 +59,51 @@ func TestKeyringDeleteMissing(t *testing.T) {
 	}
 }
 
+func TestKeyringSetDropsStaleFileCopy(t *testing.T) {
+	keyring.MockInit()
+	fallback := t.TempDir() + "/fallback"
+	s := NewKeyringStore(fallback)
+
+	// Seed a stale credential directly in the file fallback.
+	file := NewFileStore(fallback)
+	_ = file.Set("default", Credential{Token: "STALE-file-token"})
+
+	// A successful keychain Set must clear the stale file copy so Get can't
+	// later read the old one if the keychain becomes unavailable.
+	if err := s.Set("default", Credential{Token: "fresh-keychain-token"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := file.Get("default"); err != ErrNotFound {
+		t.Error("stale file copy should have been dropped after a keychain Set")
+	}
+	got, _ := s.Get("default")
+	if got.Token != "fresh-keychain-token" {
+		t.Errorf("Get returned %q, want the fresh token", got.Token)
+	}
+}
+
+func TestKeyringFallbackClearsStaleKeychain(t *testing.T) {
+	// Keychain works for the first write, then becomes unavailable for the
+	// second; the fallback write must not be shadowed by the stale keychain
+	// entry on the next Get.
+	keyring.MockInit()
+	fallback := t.TempDir() + "/fallback"
+	s := NewKeyringStore(fallback)
+	if err := s.Set("default", Credential{Token: "old-keychain"}); err != nil {
+		t.Fatal(err)
+	}
+	keyring.MockInitWithError(keyring.ErrUnsupportedPlatform)
+	defer keyring.MockInit()
+	if err := s.Set("default", Credential{Token: "new-file"}); err != nil {
+		t.Fatal(err)
+	}
+	// Keychain is down, so Get falls back to the file and reads the new token.
+	got, err := s.Get("default")
+	if err != nil || got.Token != "new-file" {
+		t.Errorf("Get = %q (%v), want new-file", got.Token, err)
+	}
+}
+
 func TestCredentialExpired(t *testing.T) {
 	now := time.Date(2026, 5, 29, 0, 0, 0, 0, time.UTC)
 	if (Credential{}).Expired(now) {

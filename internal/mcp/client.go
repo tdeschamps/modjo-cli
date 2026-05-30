@@ -155,11 +155,14 @@ func (c *Client) rpc(ctx context.Context, method string, params json.RawMessage)
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode == http.StatusAccepted {
-		return nil, nil
-	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("MCP HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(data)))
+	}
+	// 202 Accepted carries no JSON-RPC result. It's valid for notifications
+	// (handled by notify), but a request that gets 202 has no answer to return —
+	// surface it clearly instead of a nil result the caller will nil-deref on.
+	if resp.StatusCode == http.StatusAccepted || len(strings.TrimSpace(string(data))) == 0 {
+		return nil, fmt.Errorf("MCP server returned no result for %q (HTTP %d)", method, resp.StatusCode)
 	}
 
 	payload := data

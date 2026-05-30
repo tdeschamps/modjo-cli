@@ -161,6 +161,33 @@ func TestEnsureLeadingSlash(t *testing.T) {
 	}
 }
 
+func TestPaginateDecodeErrorsCountTowardLimit(t *testing.T) {
+	// Every page is full of malformed items; with a limit the iterator must
+	// stop after `limit` yields instead of following every cursor.
+	var pages int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		pages++
+		_, _ = w.Write([]byte(`{"values":["bad","bad","bad","bad","bad"],"pagination":{"nextCursor":"next"}}`))
+	}))
+	defer srv.Close()
+	c := New(Options{BaseURL: srv.URL, Token: func() (string, error) { return "k", nil }})
+
+	yields := 0
+	for _, err := range c.Deals(context.Background(), DealFilter{Limit: 3}) {
+		_ = err
+		yields++
+		if yields > 100 {
+			t.Fatal("iterator did not respect the limit on a corrupt page")
+		}
+	}
+	if yields != 3 {
+		t.Errorf("expected 3 yields (limit), got %d", yields)
+	}
+	if pages != 1 {
+		t.Errorf("should not have paged past the first page, fetched %d pages", pages)
+	}
+}
+
 func TestPaginateDecodeError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"values":["not-an-object"],"pagination":{}}`))

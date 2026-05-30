@@ -147,6 +147,53 @@ func TestOpenWithoutCRMLink(t *testing.T) {
 	}
 }
 
+func TestTranscriptNonJSONFormatsAreMachineRendered(t *testing.T) {
+	run, _ := harness(t)
+	// CSV must render the transcript blocks as CSV, not the human text dump.
+	out, _, err := run("calls", "transcript", "74969", "-o", "csv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "START,END,SPEAKER,CONTENT") {
+		t.Errorf("csv transcript should have a header row, got:\n%s", out)
+	}
+	// YAML likewise.
+	out, _, err = run("calls", "transcript", "74969", "-o", "yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "speakerName") && !strings.Contains(out, "Alice") {
+		t.Errorf("yaml transcript should render structured blocks, got:\n%s", out)
+	}
+}
+
+func TestJQPromotesToJSONInTableContext(t *testing.T) {
+	srv := fullStub(t)
+	t.Setenv("MODJO_BASE_URL", srv.URL+"/v2")
+	store := auth.NewMemoryStore()
+	_ = store.Set("default", auth.Credential{Token: "t"})
+	io, _, out, _ := iostreams.Test()
+	io.SetStdoutTTY(true) // TTY → default format would be table
+	f := &cmdutil.Factory{
+		IOStreams:  io,
+		Flags:      &cmdutil.GlobalFlags{},
+		Clock:      text.FixedClock(time.Now()),
+		ConfigPath: t.TempDir() + "/c.toml",
+		CredStore:  store,
+	}
+	cmd := root.NewCmdRoot(f)
+	cmd.SetArgs([]string{"deals", "list", "--jq", ".[].crmId"})
+	cmd.SetOut(out)
+	cmd.SetErr(out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	// --jq must take effect even though the format would default to table.
+	if strings.TrimSpace(out.String()) != "D1" {
+		t.Errorf("--jq should filter (promoted to JSON), got:\n%s", out.String())
+	}
+}
+
 func TestEmailsGetTable(t *testing.T) {
 	run, _ := harness(t)
 	out, _, err := run("emails", "get", "5", "-o", "table")

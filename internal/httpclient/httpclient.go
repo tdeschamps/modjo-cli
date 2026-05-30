@@ -102,6 +102,14 @@ func (rt *retryRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 		bodyBytes = b
 	}
 
+	// Only retry idempotent methods. Replaying a POST/PATCH (user create, an AI
+	// ask, an MCP tools/call) after a 5xx the server may have already committed
+	// would duplicate the side effect, so those get a single attempt.
+	maxRetries := rt.maxRetries
+	if !idempotent(req.Method) {
+		maxRetries = 0
+	}
+
 	var resp *http.Response
 	var err error
 	for attempt := 0; ; attempt++ {
@@ -111,14 +119,23 @@ func (rt *retryRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 		}
 		resp, err = rt.base.RoundTrip(r)
 		if err != nil {
-			if attempt >= rt.maxRetries {
+			// Don't retry once retries are exhausted, or once the caller's
+			// context is cancelled/expired (the error is terminal anyway).
+			if attempt >= maxRetries || req.Context().Err() != nil {
 				return nil, err
 			}
 			rt.sleep(rt.backoff.delay(attempt))
 			continue
 		}
-		if !retryable(resp.StatusCode) || attempt >= rt.maxRetries {
+		if !retryable(resp.StatusCode) || attempt >= maxRetries {
 			return resp, nil
+		}
+		// Don't sleep to retry if the caller's context is already done; surface
+		// the context error so a deadline maps to a timeout, not a stale 5xx.
+		if cerr := req.Context().Err(); cerr != nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+			return nil, cerr
 		}
 		wait := rt.backoff.delay(attempt)
 		if ra := parseRetryAfter(resp.Header.Get("Retry-After")); ra > 0 {
@@ -133,6 +150,16 @@ func (rt *retryRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 
 func retryable(code int) bool {
 	return code == http.StatusTooManyRequests || (code >= 500 && code <= 599)
+}
+
+// idempotent reports whether a request method is safe to retry automatically.
+func idempotent(method string) bool {
+	switch method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return true
+	default:
+		return false
+	}
 }
 
 func parseRetryAfter(v string) time.Duration {

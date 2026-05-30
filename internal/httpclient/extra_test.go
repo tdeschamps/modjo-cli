@@ -1,6 +1,7 @@
 package httpclient
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -75,6 +76,81 @@ func TestRetryNetworkErrorExhausted(t *testing.T) {
 	req, _ := http.NewRequest("GET", "https://x", nil)
 	if _, err := rt.RoundTrip(req); err == nil {
 		t.Error("expected error after exhausting retries")
+	}
+}
+
+func TestRetrySkipsNonIdempotentMethods(t *testing.T) {
+	for _, method := range []string{"POST", "PATCH", "DELETE", "PUT"} {
+		var calls int
+		base := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			calls++
+			return mkResp(503, "down"), nil
+		})
+		rt := &retryRoundTripper{base: base, maxRetries: 3, backoff: backoff{base: time.Nanosecond, max: time.Nanosecond, jitter: func() float64 { return 0 }}, sleep: func(time.Duration) {}}
+		req, _ := http.NewRequest(method, "https://x", strings.NewReader("body"))
+		if _, err := rt.RoundTrip(req); err != nil {
+			t.Fatal(err)
+		}
+		if calls != 1 {
+			t.Errorf("%s should not be retried: got %d attempts", method, calls)
+		}
+	}
+}
+
+func TestRetryGetIsStillRetried(t *testing.T) {
+	var calls int
+	base := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		return mkResp(503, "down"), nil
+	})
+	rt := &retryRoundTripper{base: base, maxRetries: 2, backoff: backoff{base: time.Nanosecond, max: time.Nanosecond, jitter: func() float64 { return 0 }}, sleep: func(time.Duration) {}}
+	req, _ := http.NewRequest("GET", "https://x", nil)
+	if _, err := rt.RoundTrip(req); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 3 {
+		t.Errorf("GET should retry: got %d attempts, want 3", calls)
+	}
+}
+
+func TestRetryStopsOnCancelledContext(t *testing.T) {
+	var calls int
+	base := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		return mkResp(503, "down"), nil
+	})
+	var slept int
+	rt := &retryRoundTripper{base: base, maxRetries: 5, backoff: defaultBackoff(), sleep: func(time.Duration) { slept++ }}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // already done
+	req, _ := http.NewRequestWithContext(ctx, "GET", "https://x", nil)
+	_, err := rt.RoundTrip(req)
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("cancelled context should surface the context error, got %v", err)
+	}
+	if calls != 1 {
+		t.Errorf("cancelled context should stop retries: got %d attempts", calls)
+	}
+	if slept != 0 {
+		t.Errorf("should not sleep when context is done: slept %d times", slept)
+	}
+}
+
+func TestRetryNetworkErrorStopsOnCancelledContext(t *testing.T) {
+	var calls int
+	base := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		calls++
+		return nil, errors.New("boom")
+	})
+	rt := &retryRoundTripper{base: base, maxRetries: 5, backoff: defaultBackoff(), sleep: func(time.Duration) {}}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req, _ := http.NewRequestWithContext(ctx, "GET", "https://x", nil)
+	if _, err := rt.RoundTrip(req); err == nil {
+		t.Error("expected error")
+	}
+	if calls != 1 {
+		t.Errorf("cancelled context should stop network-error retries: got %d", calls)
 	}
 }
 

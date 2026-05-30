@@ -39,14 +39,25 @@ func (s *KeyringStore) Get(profile string) (Credential, error) {
 }
 
 // Set stores c for profile in the keychain, falling back to the file store.
+//
+// The two backends are kept mutually exclusive so a stale copy in one can never
+// shadow a fresh write to the other: on a successful keychain write we drop any
+// file copy, and when we fall back to the file we drop any keychain copy. Get
+// reads the keychain first, so without this a transient keychain.Set failure
+// would leave an old token in the keychain that Get would keep returning.
 func (s *KeyringStore) Set(profile string, c Credential) error {
 	data, err := json.Marshal(c)
 	if err != nil {
 		return err
 	}
 	if err := keyring.Set(keyringService, profile, string(data)); err != nil {
+		// Keychain unavailable: persist to file and best-effort clear any stale
+		// keychain entry so it can't shadow this write on the next Get.
+		_ = keyring.Delete(keyringService, profile)
 		return s.fallback.Set(profile, c)
 	}
+	// Stored in the keychain: best-effort drop any stale file copy.
+	_ = s.fallback.Delete(profile)
 	return nil
 }
 

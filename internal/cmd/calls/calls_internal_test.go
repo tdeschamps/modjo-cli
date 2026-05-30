@@ -34,7 +34,13 @@ func TestTruncate(t *testing.T) {
 
 func TestFmtTime(t *testing.T) {
 	if fmtTime(75) != "01:15" {
-		t.Errorf("fmtTime = %q", fmtTime(75))
+		t.Errorf("fmtTime(75) = %q", fmtTime(75))
+	}
+	if got := fmtTime(3725); got != "01:02:05" { // 1h 2m 5s — must not wrap to 62:05
+		t.Errorf("fmtTime(3725) = %q want 01:02:05", got)
+	}
+	if got := fmtTime(4530); got != "01:15:30" {
+		t.Errorf("fmtTime(4530) = %q want 01:15:30", got)
 	}
 }
 
