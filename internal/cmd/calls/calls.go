@@ -121,15 +121,7 @@ func newGetCmd(f *cmdutil.Factory) *cobra.Command {
 				}
 				calls = append(calls, c)
 			}
-			p, err := f.Printer()
-			if err != nil {
-				return err
-			}
-			items := make([]any, len(calls))
-			for i, c := range calls {
-				items[i] = c
-			}
-			return p.Output(calls, items, callFields())
+			return cmdutil.RenderSlice(f, calls, callFields())
 		},
 	}
 	cmd.Flags().StringVar(&relations, "relations", "", "Comma-separated relations (transcript,summary,deal,account)")
@@ -156,8 +148,8 @@ func newTranscriptCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			// Any machine format (json/csv/tsv/yaml) renders the raw blocks via
-			// the shared Printer; only the table format gets the human layout.
-			if format != output.FormatTable {
+			// the shared Printer; only the interactive table gets the human layout.
+			if !format.IsInteractive() {
 				return cmdutil.RenderSlice(f, call.Transcript, transcriptFields())
 			}
 			io := f.IOStreams
@@ -243,11 +235,7 @@ func newOpenCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if call.CRMLink == "" {
-				return fmt.Errorf("call %s has no CRM link", args[0])
-			}
-			f.IOStreams.Errf("Opening %s\n", call.CRMLink)
-			return cmdutil.OpenBrowser(call.CRMLink)
+			return cmdutil.OpenResource(f.IOStreams, "call", args[0], call.CRMLink)
 		},
 	}
 }

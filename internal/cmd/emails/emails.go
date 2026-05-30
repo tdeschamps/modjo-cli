@@ -83,7 +83,7 @@ func newGetCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if format == output.FormatTable {
+			if format.IsInteractive() {
 				io := f.IOStreams
 				fmt.Fprintf(io.Out, "%s %s\n", io.Bold("Subject:"), e.Subject)
 				fmt.Fprintf(io.Out, "%s %s\n", io.Bold("From:"), e.From)

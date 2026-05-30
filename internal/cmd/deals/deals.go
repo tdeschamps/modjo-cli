@@ -2,7 +2,6 @@
 package deals
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -105,15 +104,7 @@ func newGetCmd(f *cmdutil.Factory) *cobra.Command {
 				}
 				deals = append(deals, d)
 			}
-			p, err := f.Printer()
-			if err != nil {
-				return err
-			}
-			items := make([]any, len(deals))
-			for i, d := range deals {
-				items[i] = d
-			}
-			return p.Output(deals, items, dealFields())
+			return cmdutil.RenderSlice(f, deals, dealFields())
 		},
 	}
 }
@@ -132,11 +123,7 @@ func newOpenCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if d.CRMLink == "" {
-				return fmt.Errorf("deal %s has no CRM link", args[0])
-			}
-			f.IOStreams.Errf("Opening %s\n", d.CRMLink)
-			return cmdutil.OpenBrowser(d.CRMLink)
+			return cmdutil.OpenResource(f.IOStreams, "deal", args[0], d.CRMLink)
 		},
 	}
 }

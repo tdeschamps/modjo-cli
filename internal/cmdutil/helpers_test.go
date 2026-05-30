@@ -38,6 +38,31 @@ func TestBrowserCommand(t *testing.T) {
 	}
 }
 
+func TestOpenResource(t *testing.T) {
+	io, _, _, errBuf := iostreams.Test()
+	var opened string
+	orig := BrowserRunner
+	BrowserRunner = func(name string, args ...string) error { opened = args[len(args)-1]; return nil }
+	defer func() { BrowserRunner = orig }()
+
+	// With a link: opens it and notes the URL on stderr.
+	if err := OpenResource(io, "deal", "D1", "https://crm/d/1"); err != nil {
+		t.Fatal(err)
+	}
+	if opened != "https://crm/d/1" || !strings.Contains(errBuf.String(), "Opening") {
+		t.Errorf("opened=%q stderr=%q", opened, errBuf.String())
+	}
+
+	// Without a link: uniform error, no browser launch.
+	opened = ""
+	if err := OpenResource(io, "account", "A1", ""); err == nil {
+		t.Error("expected error for missing link")
+	}
+	if opened != "" {
+		t.Error("should not launch the browser without a link")
+	}
+}
+
 func TestOpenBrowserUsesRunner(t *testing.T) {
 	var gotName string
 	var gotArgs []string

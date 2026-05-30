@@ -109,6 +109,49 @@ func TestJQFilter(t *testing.T) {
 	}
 }
 
+func TestRenderTypedSlice(t *testing.T) {
+	// JSON path encodes the typed slice directly (single copy in memory).
+	var jbuf bytes.Buffer
+	pj := &Printer{Out: &jbuf, Format: FormatJSON}
+	if err := Render(pj, sample, fields()); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(jbuf.String(), `"amount": 42000`) {
+		t.Errorf("json render:\n%s", jbuf.String())
+	}
+
+	// CSV path materializes rows via the field extractors.
+	var cbuf bytes.Buffer
+	pc := &Printer{Out: &cbuf, Format: FormatCSV}
+	if err := Render(pc, sample, fields()); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(cbuf.String(), "NAME,AMOUNT,STATUS\n") {
+		t.Errorf("csv render:\n%s", cbuf.String())
+	}
+
+	// YAML path.
+	var ybuf bytes.Buffer
+	py := &Printer{Out: &ybuf, Format: FormatYAML}
+	if err := Render(py, sample, fields()); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(ybuf.String(), "amount: 42000") {
+		t.Errorf("yaml render:\n%s", ybuf.String())
+	}
+}
+
+func TestFormatIsInteractive(t *testing.T) {
+	if !FormatTable.IsInteractive() || !Format("").IsInteractive() {
+		t.Error("table/empty should be interactive")
+	}
+	for _, f := range []Format{FormatJSON, FormatCSV, FormatTSV, FormatYAML} {
+		if f.IsInteractive() {
+			t.Errorf("%s should not be interactive", f)
+		}
+	}
+}
+
 func TestParseFormat(t *testing.T) {
 	cases := map[string]Format{"json": FormatJSON, "csv": FormatCSV, "tsv": FormatTSV, "yaml": FormatYAML, "table": FormatTable}
 	for in, want := range cases {

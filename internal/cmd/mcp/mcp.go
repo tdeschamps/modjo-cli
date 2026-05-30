@@ -70,7 +70,7 @@ func newToolsCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			format, _ := f.OutputFormat()
-			if format != "table" {
+			if !format.IsInteractive() {
 				p, _ := f.Printer()
 				return p.PrintJSON(tools)
 			}

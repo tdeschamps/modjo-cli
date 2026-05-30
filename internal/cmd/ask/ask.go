@@ -102,7 +102,7 @@ func newAskSub(f *cmdutil.Factory, name string, typ askType, idHint string) *cob
 			if err != nil {
 				return err
 			}
-			if format != "table" {
+			if !format.IsInteractive() {
 				p, _ := f.Printer()
 				envelope := struct {
 					Answer string `json:"answer"`

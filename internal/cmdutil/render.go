@@ -12,21 +12,14 @@ import (
 // first error encountered. This centralizes the "list → render" flow every
 // resource command shares.
 func CollectAndRender[T any](ctx context.Context, f *Factory, seq iter.Seq2[T, error], fields []output.Field) error {
-	raws := make([]any, 0)
 	items := make([]T, 0)
 	for item, err := range seq {
 		if err != nil {
 			return err
 		}
 		items = append(items, item)
-		raws = append(raws, item)
 	}
-	p, err := f.Printer()
-	if err != nil {
-		return err
-	}
-	// raw uses the typed slice so JSON/YAML reflect real field tags.
-	return p.Output(items, raws, fields)
+	return RenderSlice(f, items, fields)
 }
 
 // RenderSlice renders an already-collected slice of items.
@@ -35,14 +28,10 @@ func RenderSlice[T any](f *Factory, items []T, fields []output.Field) error {
 	if err != nil {
 		return err
 	}
-	raws := make([]any, len(items))
-	for i := range items {
-		raws[i] = items[i]
-	}
-	return p.Output(items, raws, fields)
+	return output.Render(p, items, fields)
 }
 
-// RenderOne renders a single object.
+// RenderOne renders a single object (not wrapped in an array).
 func RenderOne[T any](f *Factory, item T, fields []output.Field) error {
 	p, err := f.Printer()
 	if err != nil {

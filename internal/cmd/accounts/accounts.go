@@ -2,8 +2,6 @@
 package accounts
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/tdeschamps/modjo-cli/internal/api"
@@ -90,11 +88,7 @@ func newOpenCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if a.CRMLink == "" {
-				return fmt.Errorf("account %s has no CRM link", args[0])
-			}
-			f.IOStreams.Errf("Opening %s\n", a.CRMLink)
-			return cmdutil.OpenBrowser(a.CRMLink)
+			return cmdutil.OpenResource(f.IOStreams, "account", args[0], a.CRMLink)
 		},
 	}
 }

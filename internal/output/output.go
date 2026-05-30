@@ -28,6 +28,12 @@ const (
 	FormatYAML  Format = "yaml"
 )
 
+// IsInteractive reports whether the format is meant for a human reader (the
+// aligned table), as opposed to a machine-readable encoding (json/csv/tsv/yaml).
+// Commands with a bespoke human layout use this to decide human-vs-machine
+// output consistently, instead of each whitelisting a single format.
+func (f Format) IsInteractive() bool { return f == FormatTable || f == "" }
+
 // ParseFormat validates and parses a format string.
 func ParseFormat(s string) (Format, error) {
 	switch Format(strings.ToLower(strings.TrimSpace(s))) {
@@ -79,6 +85,25 @@ func (p *Printer) Output(raw any, items []any, fields []Field) error {
 		return p.renderTable(items, p.selectFields(fields))
 	default:
 		return fmt.Errorf("unsupported format %q", p.Format)
+	}
+}
+
+// Render encodes a typed slice in the printer's format. For structured formats
+// (json/yaml) the slice is encoded directly, so the common pipe-to-JSON path
+// keeps only one copy of the data in memory; only tabular formats materialize
+// the per-row []any view the field extractors need.
+func Render[T any](p *Printer, items []T, fields []Field) error {
+	switch p.Format {
+	case FormatJSON:
+		return p.renderJSON(items)
+	case FormatYAML:
+		return p.renderYAML(items)
+	default:
+		raws := make([]any, len(items))
+		for i := range items {
+			raws[i] = items[i]
+		}
+		return p.Output(items, raws, fields)
 	}
 }
 

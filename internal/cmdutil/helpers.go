@@ -107,6 +107,16 @@ func OpenBrowser(url string) error {
 	return BrowserRunner(name, args...)
 }
 
+// OpenResource opens a resource's web link in the browser, or returns a uniform
+// error when the resource has no link. Shared by the `open` subcommands.
+func OpenResource(io *iostreams.IOStreams, noun, id, link string) error {
+	if link == "" {
+		return fmt.Errorf("%s %s has no CRM link", noun, id)
+	}
+	io.Errf("Opening %s\n", link)
+	return OpenBrowser(link)
+}
+
 // OSLookup is os.LookupEnv exposed for resolver calls.
 func OSLookup(k string) (string, bool) { return os.LookupEnv(k) }
 
