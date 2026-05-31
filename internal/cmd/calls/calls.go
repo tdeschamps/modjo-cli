@@ -11,6 +11,7 @@ import (
 
 	"github.com/tdeschamps/modjo-cli/internal/api"
 	"github.com/tdeschamps/modjo-cli/internal/cmdutil"
+	"github.com/tdeschamps/modjo-cli/internal/iostreams"
 	"github.com/tdeschamps/modjo-cli/internal/output"
 )
 
@@ -32,10 +33,10 @@ func NewCmdCalls(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-func callFields() []output.Field {
+func callFields(io *iostreams.IOStreams) []output.Field {
 	return []output.Field{
 		{Name: "ID", Extract: func(v any) string { return v.(api.Call).ID.String() }},
-		{Name: "TITLE", Extract: func(v any) string { return v.(api.Call).Title }},
+		{Name: "TITLE", Extract: func(v any) string { c := v.(api.Call); return io.Hyperlink(c.Title, c.CRMLink) }},
 		{Name: "DATE", Extract: func(v any) string { return v.(api.Call).StartTime }},
 		{Name: "SUMMARY", Extract: func(v any) string { return truncate(v.(api.Call).Summary, 60) }},
 	}
@@ -95,7 +96,7 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return cmdutil.CollectAndRender(cmd.Context(), f, client.Calls(cmd.Context(), filter), callFields(), "calls")
+			return cmdutil.CollectAndRender(cmd.Context(), f, client.Calls(cmd.Context(), filter), callFields(f.IOStreams), "calls")
 		},
 	}
 	bindListFlags(cmd, fl)
@@ -117,7 +118,7 @@ func newGetCmd(f *cmdutil.Factory) *cobra.Command {
 			get := func(ctx context.Context, id string) (api.Call, error) {
 				return client.GetCall(ctx, id, rels...)
 			}
-			return cmdutil.GetAndRender(cmd.Context(), f, args, get, callFields())
+			return cmdutil.GetAndRender(cmd.Context(), f, args, get, callFields(f.IOStreams))
 		},
 	}
 	cmd.Flags().StringVar(&relations, "relations", "", "Comma-separated relations (transcript,summary,deal,account)")
@@ -210,7 +211,7 @@ func newExportCmd(f *cmdutil.Factory) *cobra.Command {
 			if f.Flags.Output == "" && !f.Flags.JSON {
 				f.Flags.Output = "csv"
 			}
-			return cmdutil.CollectAndRender(cmd.Context(), f, client.Calls(cmd.Context(), filter), callFields(), "calls")
+			return cmdutil.CollectAndRender(cmd.Context(), f, client.Calls(cmd.Context(), filter), callFields(f.IOStreams), "calls")
 		},
 	}
 	bindListFlags(cmd, fl)

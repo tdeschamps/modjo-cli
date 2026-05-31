@@ -164,3 +164,18 @@ func TestParseFormat(t *testing.T) {
 		t.Error("expected error for bogus format")
 	}
 }
+
+func TestDisplayWidthSkipsEscapes(t *testing.T) {
+	// Visible width ignores ANSI color (CSI) and OSC 8 hyperlink sequences.
+	color := "\033[31mContoso\033[0m"
+	if got := displayWidth(color); got != len("Contoso") {
+		t.Errorf("colored width = %d want %d", got, len("Contoso"))
+	}
+	link := "\033]8;;https://crm/a/1\033\\Contoso\033]8;;\033\\"
+	if got := displayWidth(link); got != len("Contoso") {
+		t.Errorf("linked width = %d want %d", got, len("Contoso"))
+	}
+	if displayWidth("plain") != 5 {
+		t.Errorf("plain width wrong")
+	}
+}

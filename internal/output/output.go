@@ -232,9 +232,42 @@ func (p *Printer) renderTable(items []any, fields []Field) error {
 	return nil
 }
 
-// displayWidth counts runes (good enough for our column alignment without a
-// full east-asian-width table).
-func displayWidth(s string) int { return len([]rune(s)) }
+// displayWidth counts visible runes, skipping ANSI color (CSI) and OSC 8
+// hyperlink escape sequences so colored or linked cells still align in tables.
+func displayWidth(s string) int {
+	n := 0
+	runes := []rune(s)
+	for i := 0; i < len(runes); i++ {
+		if runes[i] != 0x1b { // not ESC → a visible rune
+			n++
+			continue
+		}
+		// Skip an escape sequence.
+		i++
+		if i >= len(runes) {
+			break
+		}
+		switch runes[i] {
+		case '[': // CSI: ESC [ ... <final byte 0x40–0x7e>
+			for i++; i < len(runes); i++ {
+				if runes[i] >= 0x40 && runes[i] <= 0x7e {
+					break
+				}
+			}
+		case ']': // OSC: ESC ] ... terminated by BEL or ESC \
+			for i++; i < len(runes); i++ {
+				if runes[i] == 0x07 {
+					break
+				}
+				if runes[i] == 0x1b && i+1 < len(runes) && runes[i+1] == '\\' {
+					i++
+					break
+				}
+			}
+		}
+	}
+	return n
+}
 
 func (p *Printer) renderJQ(raw any) error {
 	results, err := p.evalJQ(raw)

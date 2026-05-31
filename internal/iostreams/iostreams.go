@@ -6,6 +6,7 @@
 package iostreams
 
 import (
+	"bufio"
 	"bytes"
 	"io"
 	"os"
@@ -29,6 +30,9 @@ type IOStreams struct {
 	// progressEnabled gates spinners/progress (off when piped, --quiet, or
 	// --hide-spinner). It governs chrome only — never data on stdout.
 	progressEnabled bool
+
+	// inReader is the shared buffered reader for interactive prompts.
+	inReader *bufio.Reader
 }
 
 // System returns IOStreams wired to the real process streams, with TTY and

@@ -6,6 +6,7 @@ import (
 
 	"github.com/tdeschamps/modjo-cli/internal/api"
 	"github.com/tdeschamps/modjo-cli/internal/cmdutil"
+	"github.com/tdeschamps/modjo-cli/internal/iostreams"
 	"github.com/tdeschamps/modjo-cli/internal/output"
 )
 
@@ -20,10 +21,10 @@ func NewCmdAccounts(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-func accountFields() []output.Field {
+func accountFields(io *iostreams.IOStreams) []output.Field {
 	return []output.Field{
 		{Name: "CRMID", Extract: func(v any) string { return v.(api.Account).CRMID }},
-		{Name: "NAME", Extract: func(v any) string { return v.(api.Account).Name }},
+		{Name: "NAME", Extract: func(v any) string { a := v.(api.Account); return io.Hyperlink(a.Name, a.CRMLink) }},
 		{Name: "DOMAIN", Extract: func(v any) string { return v.(api.Account).Domain }},
 	}
 }
@@ -44,7 +45,7 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			seq := client.Accounts(cmd.Context(), api.AccountFilter{Name: name, Limit: limit})
-			return cmdutil.CollectAndRender(cmd.Context(), f, seq, accountFields(), "accounts")
+			return cmdutil.CollectAndRender(cmd.Context(), f, seq, accountFields(f.IOStreams), "accounts")
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Filter by account name")
@@ -61,7 +62,7 @@ func newGetCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return cmdutil.GetAndRender(cmd.Context(), f, args, client.GetAccount, accountFields())
+			return cmdutil.GetAndRender(cmd.Context(), f, args, client.GetAccount, accountFields(f.IOStreams))
 		},
 	}
 }

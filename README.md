@@ -109,6 +109,7 @@ modjo
 ├── ask         call | deal | account   (natural language over the MCP)
 ├── mcp         serve | tools | call | config
 ├── api         raw authenticated request escape hatch
+├── info        version, configuration & status (logo banner)
 ├── doctor      connectivity & credential diagnostics
 ├── completion  bash | zsh | fish | powershell
 ├── docs        open the docs
@@ -187,6 +188,27 @@ for inspection and one-off scripted tool calls.
 | `2`  | usage / bad flags    | `7`  | validation (422)        |
 | `3`  | auth required (401)  | `8`  | upstream / server (5xx) |
 | `4`  | forbidden (403)      | `124`| operation timed out     |
+
+## Terminal experience
+
+On an interactive terminal `modjo` adds a few niceties — and every one of them
+is **suppressed the moment output isn't a TTY**, so pipes, `--json`, and scripts
+stay byte-for-byte plain:
+
+- **`modjo info`** — a logo banner with your version, profile, endpoints, and
+  auth status (and `--json` for a machine-readable summary).
+- **Spinners** on the slow paths (`ask`, `auth login`, `doctor`) and a live
+  **`Fetched N …` count** during `--all` sweeps — all on stderr, never stdout.
+- **Colors & links** — status-colored deal stages and OSC 8 hyperlinks on
+  resource names (click to open the CRM record in supporting terminals).
+- **Success banners** with next steps (e.g. after `auth login`).
+- **Guided `modjo ask`** — run it with no arguments to pick an entity, resolve
+  it by name, and ask, interactively.
+- **Update notices** — a non-blocking "new version available" hint, suppressible
+  with `MODJO_NO_UPDATE_NOTIFIER=1`.
+
+Turn the chrome off anytime with `--no-color`, `--quiet`, `--hide-spinner`, or
+the standard `NO_COLOR`.
 
 ## Development
 

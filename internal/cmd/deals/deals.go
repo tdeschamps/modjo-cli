@@ -8,6 +8,7 @@ import (
 
 	"github.com/tdeschamps/modjo-cli/internal/api"
 	"github.com/tdeschamps/modjo-cli/internal/cmdutil"
+	"github.com/tdeschamps/modjo-cli/internal/iostreams"
 	"github.com/tdeschamps/modjo-cli/internal/output"
 )
 
@@ -22,12 +23,12 @@ func NewCmdDeals(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-func dealFields() []output.Field {
+func dealFields(io *iostreams.IOStreams) []output.Field {
 	return []output.Field{
 		{Name: "CRMID", Extract: func(v any) string { return v.(api.Deal).CRMID }},
-		{Name: "NAME", Extract: func(v any) string { return v.(api.Deal).Name }},
+		{Name: "NAME", Extract: func(v any) string { d := v.(api.Deal); return io.Hyperlink(d.Name, d.CRMLink) }},
 		{Name: "ACCOUNT", Extract: func(v any) string { return v.(api.Deal).Account }},
-		{Name: "STATUS", Extract: func(v any) string { return v.(api.Deal).Status }},
+		{Name: "STATUS", Extract: func(v any) string { return io.StatusColor(v.(api.Deal).Status) }},
 		{Name: "AMOUNT", Extract: func(v any) string { return fmtAmount(v.(api.Deal)) }},
 		{Name: "CLOSE", Extract: func(v any) string { return v.(api.Deal).CloseDate }},
 		{Name: "SOURCE", Extract: func(v any) string { return v.(api.Deal).Source }},
@@ -72,7 +73,7 @@ open|won|lost|closed (mapped to "Open"|"Closed won"|"Closed lost"|"Closed").`,
 				LossReason:  lossReason,
 				Limit:       limit,
 			}
-			return cmdutil.CollectAndRender(cmd.Context(), f, client.Deals(cmd.Context(), filter), dealFields(), "deals")
+			return cmdutil.CollectAndRender(cmd.Context(), f, client.Deals(cmd.Context(), filter), dealFields(f.IOStreams), "deals")
 		},
 	}
 	cmd.Flags().StringSliceVar(&status, "status", nil, "Filter by status (open|won|lost|closed or canonical)")
@@ -96,7 +97,7 @@ func newGetCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return cmdutil.GetAndRender(cmd.Context(), f, args, client.GetDeal, dealFields())
+			return cmdutil.GetAndRender(cmd.Context(), f, args, client.GetDeal, dealFields(f.IOStreams))
 		},
 	}
 }
