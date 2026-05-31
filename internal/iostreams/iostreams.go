@@ -25,6 +25,10 @@ type IOStreams struct {
 
 	// neverPrompt disables interactive prompting (e.g. when --quiet or no TTY).
 	neverPrompt bool
+
+	// progressEnabled gates spinners/progress (off when piped, --quiet, or
+	// --hide-spinner). It governs chrome only — never data on stdout.
+	progressEnabled bool
 }
 
 // System returns IOStreams wired to the real process streams, with TTY and
@@ -33,13 +37,14 @@ func System() *IOStreams {
 	stdoutTTY := isTerminal(os.Stdout)
 	stderrTTY := isTerminal(os.Stderr)
 	return &IOStreams{
-		In:           os.Stdin,
-		Out:          os.Stdout,
-		ErrOut:       os.Stderr,
-		stdoutTTY:    stdoutTTY,
-		stderrTTY:    stderrTTY,
-		colorEnabled: stdoutTTY && envColorAllowed(),
-		neverPrompt:  !stdoutTTY,
+		In:              os.Stdin,
+		Out:             os.Stdout,
+		ErrOut:          os.Stderr,
+		stdoutTTY:       stdoutTTY,
+		stderrTTY:       stderrTTY,
+		colorEnabled:    stdoutTTY && envColorAllowed(),
+		neverPrompt:     !stdoutTTY,
+		progressEnabled: stderrTTY,
 	}
 }
 
@@ -88,6 +93,12 @@ func (s *IOStreams) CanPrompt() bool { return !s.neverPrompt }
 
 // SetNeverPrompt disables interactive prompting.
 func (s *IOStreams) SetNeverPrompt(v bool) { s.neverPrompt = v }
+
+// ProgressEnabled reports whether spinners/progress chrome should render.
+func (s *IOStreams) ProgressEnabled() bool { return s.progressEnabled }
+
+// SetProgressEnabled toggles spinners/progress chrome.
+func (s *IOStreams) SetProgressEnabled(v bool) { s.progressEnabled = v }
 
 func envColorAllowed() bool {
 	if _, ok := os.LookupEnv("NO_COLOR"); ok {

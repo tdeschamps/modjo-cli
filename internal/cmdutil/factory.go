@@ -40,6 +40,7 @@ type GlobalFlags struct {
 	Yes         bool
 	Insecure    bool
 	MaxRetries  int
+	HideSpinner bool
 }
 
 // Factory builds the dependencies a command needs, lazily and consistently.

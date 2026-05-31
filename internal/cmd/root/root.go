@@ -19,6 +19,7 @@ import (
 	"github.com/tdeschamps/modjo-cli/internal/cmd/docs"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/doctor"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/emails"
+	"github.com/tdeschamps/modjo-cli/internal/cmd/info"
 	mcpcmd "github.com/tdeschamps/modjo-cli/internal/cmd/mcp"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/profiles"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/teams"
@@ -80,6 +81,7 @@ See 'modjo <command> --help' for details on any command.`,
 	pf.BoolVarP(&flags.Yes, "yes", "y", false, "Skip confirmation prompts")
 	pf.BoolVar(&flags.Insecure, "insecure", false, "Skip TLS verification (debugging only)")
 	pf.IntVar(&flags.MaxRetries, "max-retries", 0, "Max retries on 429/5xx")
+	pf.BoolVar(&flags.HideSpinner, "hide-spinner", false, "Disable progress spinners")
 
 	// --version on the root prints our richer string.
 	pf.BoolVar(&showVersion, "version", false, "Show version information")
@@ -109,6 +111,7 @@ See 'modjo <command> --help' for details on any command.`,
 		mcpcmd.NewCmdMCP(f),
 		apicmd.NewCmdAPI(f),
 		doctor.NewCmdDoctor(f),
+		info.NewCmdInfo(f),
 		completion.NewCmdCompletion(f),
 		docs.NewCmdDocs(f),
 		update.NewCmdUpdate(f),
@@ -132,5 +135,10 @@ func applyPresentation(f *cmdutil.Factory) {
 	}
 	if f.Flags.Quiet {
 		io.SetNeverPrompt(true)
+	}
+	// Spinners are chrome on stderr: suppress them when quiet, when explicitly
+	// hidden, or when stderr isn't a terminal.
+	if f.Flags.Quiet || f.Flags.HideSpinner || !io.IsStderrTTY() {
+		io.SetProgressEnabled(false)
 	}
 }
