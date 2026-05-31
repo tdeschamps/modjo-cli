@@ -55,7 +55,7 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			seq := client.Emails(cmd.Context(), api.EmailFilter{Account: account, Deal: deal, Since: s, Until: u, Limit: limit})
-			return cmdutil.CollectAndRender(cmd.Context(), f, seq, emailFields())
+			return cmdutil.CollectAndRender(cmd.Context(), f, seq, emailFields(), "emails")
 		},
 	}
 	cmd.Flags().StringVar(&account, "account", "", "Filter by account crmId")

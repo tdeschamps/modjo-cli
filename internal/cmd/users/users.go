@@ -50,7 +50,7 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			seq := client.Users(cmd.Context(), api.UserFilter{Name: name, Email: email, Role: role, Department: department, Limit: limit})
-			return cmdutil.CollectAndRender(cmd.Context(), f, seq, userFields())
+			return cmdutil.CollectAndRender(cmd.Context(), f, seq, userFields(), "users")
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Filter by name")

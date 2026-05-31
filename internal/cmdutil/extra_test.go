@@ -105,7 +105,7 @@ func TestSaveConfigDefaultPath(t *testing.T) {
 func TestRenderBadFormatBranches(t *testing.T) {
 	io, _, _, _ := iostreams.Test()
 	f := &Factory{IOStreams: io, Flags: &GlobalFlags{Output: "bogus"}, ConfigPath: t.TempDir() + "/c.toml"}
-	if err := CollectAndRender(t.Context(), f, seqOf([]row{{"a"}}, nil), fields()); err == nil {
+	if err := CollectAndRender(t.Context(), f, seqOf([]row{{"a"}}, nil), fields(), "rows"); err == nil {
 		t.Error("CollectAndRender should error on bad format")
 	}
 	get := func(_ context.Context, id string) (row, error) { return row{Name: id}, nil }

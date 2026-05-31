@@ -43,7 +43,7 @@ func renderFactory(t *testing.T) (*Factory, *strings.Builder) {
 
 func TestCollectAndRender(t *testing.T) {
 	f, out := renderFactory(t)
-	err := CollectAndRender(context.Background(), f, seqOf([]row{{"a"}, {"b"}}, nil), fields())
+	err := CollectAndRender(context.Background(), f, seqOf([]row{{"a"}, {"b"}}, nil), fields(), "rows")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,9 +54,30 @@ func TestCollectAndRender(t *testing.T) {
 
 func TestCollectAndRenderError(t *testing.T) {
 	f, _ := renderFactory(t)
-	err := CollectAndRender(context.Background(), f, seqOf([]row{{"a"}}, errors.New("boom")), fields())
+	err := CollectAndRender(context.Background(), f, seqOf([]row{{"a"}}, errors.New("boom")), fields(), "rows")
 	if err == nil || err.Error() != "boom" {
 		t.Errorf("want boom, got %v", err)
+	}
+}
+
+func TestCollectAndRenderAllShowsProgress(t *testing.T) {
+	io, _, out, errOut := iostreams.Test()
+	io.Out = out
+	io.SetStderrTTY(true)
+	io.SetProgressEnabled(true)
+	f := &Factory{IOStreams: io, Flags: &GlobalFlags{JSON: true, All: true}, ConfigPath: t.TempDir() + "/c.toml"}
+
+	err := CollectAndRender(context.Background(), f, seqOf([]row{{"a"}, {"b"}, {"c"}}, nil), fields(), "rows")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Data still goes to stdout untouched…
+	if !strings.Contains(out.String(), `"name": "a"`) {
+		t.Errorf("stdout data: %s", out.String())
+	}
+	// …and the progress count went to stderr.
+	if !strings.Contains(errOut.String(), "rows") {
+		t.Errorf("expected progress on stderr, got %q", errOut.String())
 	}
 }
 

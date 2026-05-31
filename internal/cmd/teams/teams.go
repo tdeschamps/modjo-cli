@@ -37,7 +37,7 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return cmdutil.CollectAndRender(cmd.Context(), f, client.Teams(cmd.Context()), teamFields())
+			return cmdutil.CollectAndRender(cmd.Context(), f, client.Teams(cmd.Context()), teamFields(), "teams")
 		},
 	}
 }

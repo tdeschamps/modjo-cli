@@ -55,9 +55,13 @@ func NewCmdDoctor(f *cmdutil.Factory) *cobra.Command {
 			}
 			fmt.Fprintf(io.Out, "%s credential stored: %s\n", ok(hasCred), boolText(hasCred))
 
-			// REST reachability via /me.
+			// Probe both endpoints behind a spinner (no-op when piped/--quiet).
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
 			defer cancel()
+			sp := io.NewSpinner("Probing endpoints…")
+			sp.Start()
+
+			// REST reachability via /me.
 			client, err := f.APIClient()
 			restOK := false
 			var restErr error
@@ -65,10 +69,6 @@ func NewCmdDoctor(f *cmdutil.Factory) *cobra.Command {
 				if _, restErr = client.Me(ctx); restErr == nil {
 					restOK = true
 				}
-			}
-			fmt.Fprintf(io.Out, "%s REST %s\n", ok(restOK), baseURL)
-			if restErr != nil {
-				fmt.Fprintf(io.Out, "    %s\n", io.Gray(restErr.Error()))
 			}
 
 			// MCP reachability via tools/list.
@@ -78,6 +78,12 @@ func NewCmdDoctor(f *cmdutil.Factory) *cobra.Command {
 				if _, mcpErr = mc.Tools(ctx); mcpErr == nil {
 					mcpOK = true
 				}
+			}
+			sp.Stop()
+
+			fmt.Fprintf(io.Out, "%s REST %s\n", ok(restOK), baseURL)
+			if restErr != nil {
+				fmt.Fprintf(io.Out, "    %s\n", io.Gray(restErr.Error()))
 			}
 			fmt.Fprintf(io.Out, "%s MCP  %s\n", ok(mcpOK), mcpURL)
 			if mcpErr != nil {

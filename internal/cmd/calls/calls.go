@@ -95,7 +95,7 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return cmdutil.CollectAndRender(cmd.Context(), f, client.Calls(cmd.Context(), filter), callFields())
+			return cmdutil.CollectAndRender(cmd.Context(), f, client.Calls(cmd.Context(), filter), callFields(), "calls")
 		},
 	}
 	bindListFlags(cmd, fl)
@@ -210,7 +210,7 @@ func newExportCmd(f *cmdutil.Factory) *cobra.Command {
 			if f.Flags.Output == "" && !f.Flags.JSON {
 				f.Flags.Output = "csv"
 			}
-			return cmdutil.CollectAndRender(cmd.Context(), f, client.Calls(cmd.Context(), filter), callFields())
+			return cmdutil.CollectAndRender(cmd.Context(), f, client.Calls(cmd.Context(), filter), callFields(), "calls")
 		},
 	}
 	bindListFlags(cmd, fl)

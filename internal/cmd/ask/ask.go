@@ -80,6 +80,11 @@ func newAskSub(f *cmdutil.Factory, name string, typ askType, idHint string) *cob
 			ctx, cancel := context.WithTimeout(cmd.Context(), analysisTimeout)
 			defer cancel()
 
+			// AI analysis can take up to a minute; show a spinner while we wait
+			// (no-op when piped/--quiet so the answer on stdout stays clean).
+			sp := f.IOStreams.NewSpinner(fmt.Sprintf("Analyzing %s %s…", name, id))
+			sp.Start()
+
 			opt := mcp.AskOpts{Agent: agentID, Language: lang}
 			var ans mcp.Answer
 			switch typ {
@@ -90,6 +95,7 @@ func newAskSub(f *cmdutil.Factory, name string, typ askType, idHint string) *cob
 			case askAccount:
 				ans, err = client.AskOnAccount(ctx, id, question, opt)
 			}
+			sp.Stop()
 			if err != nil {
 				if ctx.Err() == context.DeadlineExceeded {
 					return cmdutil.NewSilentError(cmdutil.ExitTimeout,

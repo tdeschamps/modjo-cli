@@ -82,6 +82,9 @@ func (s *IOStreams) IsStderrTTY() bool { return s.stderrTTY }
 // SetStdoutTTY overrides TTY detection (tests and --color handling).
 func (s *IOStreams) SetStdoutTTY(v bool) { s.stdoutTTY = v }
 
+// SetStderrTTY overrides stderr TTY detection (tests and presentation).
+func (s *IOStreams) SetStderrTTY(v bool) { s.stderrTTY = v }
+
 // ColorEnabled reports whether ANSI color should be emitted.
 func (s *IOStreams) ColorEnabled() bool { return s.colorEnabled }
 

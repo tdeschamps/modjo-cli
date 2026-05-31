@@ -72,7 +72,7 @@ open|won|lost|closed (mapped to "Open"|"Closed won"|"Closed lost"|"Closed").`,
 				LossReason:  lossReason,
 				Limit:       limit,
 			}
-			return cmdutil.CollectAndRender(cmd.Context(), f, client.Deals(cmd.Context(), filter), dealFields())
+			return cmdutil.CollectAndRender(cmd.Context(), f, client.Deals(cmd.Context(), filter), dealFields(), "deals")
 		},
 	}
 	cmd.Flags().StringSliceVar(&status, "status", nil, "Filter by status (open|won|lost|closed or canonical)")

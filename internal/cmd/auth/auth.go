@@ -16,6 +16,7 @@ import (
 	"github.com/tdeschamps/modjo-cli/internal/cmdutil"
 	"github.com/tdeschamps/modjo-cli/internal/config"
 	"github.com/tdeschamps/modjo-cli/internal/httpclient"
+	"github.com/tdeschamps/modjo-cli/internal/iostreams"
 )
 
 // NewCmdAuth returns the auth command group.
@@ -94,8 +95,12 @@ CI-friendly:
 			})
 			ctx, cancel := context.WithTimeout(cmd.Context(), 20*time.Second)
 			defer cancel()
-			if _, err := client.Me(ctx); err != nil {
-				return fmt.Errorf("could not validate API key: %w", err)
+			sp := io.NewSpinner("Validating API key…")
+			sp.Start()
+			_, verr := client.Me(ctx)
+			sp.Stop()
+			if verr != nil {
+				return fmt.Errorf("could not validate API key: %w", verr)
 			}
 
 			store, err := f.CredentialStore()
@@ -114,8 +119,16 @@ CI-friendly:
 				_ = f.SaveConfig(cfg)
 			}
 
-			io.Errf("%s Logged in to profile %q (key %s)\n", io.Green("✓"), profileName, auth.Fingerprint(key))
-			io.Errf("Note: this credential grants access to the entire workspace.\n")
+			io.RenderBanner(iostreams.Banner{
+				Kind:     iostreams.BannerSuccess,
+				Headline: fmt.Sprintf("Logged in to profile %q", profileName),
+				Body:     fmt.Sprintf("Key %s — this credential grants access to the entire workspace.", auth.Fingerprint(key)),
+				NextSteps: []string{
+					"modjo info — see your configuration",
+					"modjo calls list — pull recent calls",
+					"modjo ask deal <id> \"What are the risks?\"",
+				},
+			})
 			return nil
 		},
 	}

@@ -46,7 +46,7 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			seq := client.Agents(cmd.Context(), api.AgentFilter{Search: search, Origin: origin, Limit: limit})
-			return cmdutil.CollectAndRender(cmd.Context(), f, seq, agentFields())
+			return cmdutil.CollectAndRender(cmd.Context(), f, seq, agentFields(), "agents")
 		},
 	}
 	cmd.Flags().StringVar(&search, "search", "", "Filter by search term")

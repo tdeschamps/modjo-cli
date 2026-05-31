@@ -4,6 +4,9 @@
 package root
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/spf13/cobra"
 
 	"github.com/tdeschamps/modjo-cli/internal/cmd/accounts"
@@ -27,6 +30,7 @@ import (
 	"github.com/tdeschamps/modjo-cli/internal/cmd/users"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/version"
 	"github.com/tdeschamps/modjo-cli/internal/cmdutil"
+	"github.com/tdeschamps/modjo-cli/internal/updatecheck"
 )
 
 // NewCmdRoot builds the root command and its subtree using the given factory.
@@ -54,7 +58,11 @@ See 'modjo <command> --help' for details on any command.`,
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			applyPresentation(f)
+			startUpdateCheck(cmd)
 			return nil
+		},
+		PersistentPostRun: func(cmd *cobra.Command, args []string) {
+			printUpdateNotice(f, cmd)
 		},
 	}
 
@@ -140,5 +148,37 @@ func applyPresentation(f *cmdutil.Factory) {
 	// hidden, or when stderr isn't a terminal.
 	if f.Flags.Quiet || f.Flags.HideSpinner || !io.IsStderrTTY() {
 		io.SetProgressEnabled(false)
+	}
+}
+
+// updateNotifierEnabled reports whether the "new version available" check
+// should run for this command (interactive stderr, not quiet/suppressed, and
+// not a command whose stdout is captured/sourced like completion).
+func updateNotifierEnabled(f *cmdutil.Factory, cmd *cobra.Command) bool {
+	if updatecheck.Suppressed() || f.Flags.Quiet || !f.IOStreams.IsStderrTTY() {
+		return false
+	}
+	switch cmd.Name() {
+	case "completion", "version", "update", "info":
+		return false
+	}
+	return true
+}
+
+// startUpdateCheck refreshes the version cache in the background; it never
+// blocks the command (and is simply lost if the process exits first).
+func startUpdateCheck(cmd *cobra.Command) {
+	go updatecheck.Refresh(cmd.Context(), version.Version, updatecheck.StatePath(),
+		updatecheck.GitHubLatest, time.Now())
+}
+
+// printUpdateNotice prints a cached upgrade notice (from a previous run's
+// background refresh) to stderr.
+func printUpdateNotice(f *cmdutil.Factory, cmd *cobra.Command) {
+	if !updateNotifierEnabled(f, cmd) {
+		return
+	}
+	if notice := updatecheck.Notice(version.Version, updatecheck.StatePath()); notice != "" {
+		fmt.Fprintf(f.IOStreams.ErrOut, "\n%s %s\n", f.IOStreams.Yellow("!"), notice)
 	}
 }
