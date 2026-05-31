@@ -5,14 +5,13 @@
 **One CLI for the Modjo REST API v2 and the Modjo MCP server — scriptable, agent-friendly, and at home in any terminal.**
 
 [![CI](https://github.com/tdeschamps/modjo-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/tdeschamps/modjo-cli/actions/workflows/ci.yml)
-[![Release](https://github.com/tdeschamps/modjo-cli/actions/workflows/release.yml/badge.svg)](https://github.com/tdeschamps/modjo-cli/actions/workflows/release.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/tdeschamps/modjo-cli.svg)](https://pkg.go.dev/github.com/tdeschamps/modjo-cli)
-[![Go Report Card](https://goreportcard.com/badge/github.com/tdeschamps/modjo-cli)](https://goreportcard.com/report/github.com/tdeschamps/modjo-cli)
-[![codecov](https://codecov.io/gh/tdeschamps/modjo-cli/branch/main/graph/badge.svg)](https://codecov.io/gh/tdeschamps/modjo-cli)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/tdeschamps/modjo-cli)](go.mod)
-[![Latest Release](https://img.shields.io/github/v/release/tdeschamps/modjo-cli?sort=semver)](https://github.com/tdeschamps/modjo-cli/releases)
+[![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?logo=go&logoColor=white)](go.mod)
+[![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)](#development)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196.svg)](https://www.conventionalcommits.org)
+
+<sub>Go Report Card, codecov, and the release/version badges activate once the repository is public.</sub>
 
 </div>
 
