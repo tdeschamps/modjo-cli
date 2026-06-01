@@ -19,6 +19,10 @@ import (
 	"github.com/tdeschamps/modjo-cli/internal/iostreams"
 )
 
+// logo is the Modjo brand mark: an ASCII-density disc with the waveform bars
+// carved out as negative space, beside the wordmark. It's plain text (one cyan
+// wrap at render time) so it degrades cleanly to pipes, --no-color, and NO_COLOR.
+//
 //go:embed logo.txt
 var logo string
 

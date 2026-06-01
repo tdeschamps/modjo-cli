@@ -91,8 +91,8 @@ func TestInfoUnauthenticatedHuman(t *testing.T) {
 
 func TestInfoCheckProbes(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/me") {
-			_, _ = w.Write([]byte(`{"email":"me"}`))
+		if strings.HasSuffix(r.URL.Path, "/users") {
+			_, _ = w.Write([]byte(`{"data":[{"id":1}],"pagination":{}}`))
 			return
 		}
 		// MCP endpoint
