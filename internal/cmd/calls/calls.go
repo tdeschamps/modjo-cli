@@ -4,10 +4,7 @@ package calls
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -138,7 +135,7 @@ func newTranscriptCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			blocks, err := fetchTranscript(cmd.Context(), client, args[0])
+			blocks, err := client.GetCallTranscript(cmd.Context(), args[0])
 			if err != nil {
 				return err
 			}
@@ -180,7 +177,7 @@ func newSummaryCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			summaries, err := fetchSummaries(cmd.Context(), client, args[0])
+			summaries, err := client.GetCallSummaries(cmd.Context(), args[0])
 			if err != nil {
 				return err
 			}
@@ -236,40 +233,6 @@ func newExportCmd(f *cmdutil.Factory) *cobra.Command {
 	}
 	bindListFlags(cmd, fl)
 	return cmd
-}
-
-// dataEnvelope is the {data:[...]} wrapper the call sub-resource endpoints
-// (transcript, summaries) return. We decode it locally because the Foundation
-// client exposes these only via Raw.
-type dataEnvelope[T any] struct {
-	Data []T `json:"data"`
-}
-
-// fetchTranscript reads GET /calls/{id}/transcript and returns its blocks. The
-// endpoint yields an empty list while the call is still processing.
-func fetchTranscript(ctx context.Context, client *api.Client, id string) ([]api.TranscriptBlock, error) {
-	raw, err := client.Raw(ctx, http.MethodGet, "/calls/"+url.PathEscape(id)+"/transcript", nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	var env dataEnvelope[api.TranscriptBlock]
-	if err := json.Unmarshal(raw, &env); err != nil {
-		return nil, err
-	}
-	return env.Data, nil
-}
-
-// fetchSummaries reads GET /calls/{id}/summaries.
-func fetchSummaries(ctx context.Context, client *api.Client, id string) ([]api.CallSummary, error) {
-	raw, err := client.Raw(ctx, http.MethodGet, "/calls/"+url.PathEscape(id)+"/summaries", nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	var env dataEnvelope[api.CallSummary]
-	if err := json.Unmarshal(raw, &env); err != nil {
-		return nil, err
-	}
-	return env.Data, nil
 }
 
 func splitCSV(s string) []string {

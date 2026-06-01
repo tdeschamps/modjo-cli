@@ -57,6 +57,20 @@ type listResponse struct {
 	Pagination pagination        `json:"pagination"`
 }
 
+// getData fetches a sub-resource that wraps its rows in a {"data":[...]}
+// envelope without pagination (e.g. /calls/{id}/transcript, /summaries) and
+// decodes them into []T. It keeps the {data} envelope handled in one place
+// rather than re-implemented per command.
+func getData[T any](ctx context.Context, c *Client, path string) ([]T, error) {
+	var env struct {
+		Data []T `json:"data"`
+	}
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, nil, &env); err != nil {
+		return nil, err
+	}
+	return env.Data, nil
+}
+
 // doJSON performs a request and decodes a JSON response into out. It maps
 // non-2xx responses to *Error.
 func (c *Client) doJSON(ctx context.Context, method, path string, query url.Values, body io.Reader, out any) error {
@@ -229,6 +243,17 @@ func (c *Client) GetCall(ctx context.Context, id string, expand ...string) (Call
 	var out Call
 	err := c.doJSON(ctx, http.MethodGet, "/calls/"+url.PathEscape(id), q, nil, &out)
 	return out, err
+}
+
+// GetCallTranscript fetches a call's transcript blocks (empty while the call is
+// still processing).
+func (c *Client) GetCallTranscript(ctx context.Context, id string) ([]TranscriptBlock, error) {
+	return getData[TranscriptBlock](ctx, c, "/calls/"+url.PathEscape(id)+"/transcript")
+}
+
+// GetCallSummaries fetches a call's pre-generated summaries.
+func (c *Client) GetCallSummaries(ctx context.Context, id string) ([]CallSummary, error) {
+	return getData[CallSummary](ctx, c, "/calls/"+url.PathEscape(id)+"/summaries")
 }
 
 // GetDeal fetches one deal by numeric id. Note: the spec exposes
