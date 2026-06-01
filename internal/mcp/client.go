@@ -15,18 +15,6 @@ import (
 	"sync"
 )
 
-// NativeAgents maps the built-in Modjo agent names to their UUIDs. The
-// ask_anything_on_* MCP tools accept an optional agentId; these are the
-// known built-ins (product spec Appendix B).
-var NativeAgents = map[string]string{
-	"CallSummary":    "741e9ffc-87be-4bca-bb0d-f167be8b963e",
-	"NextStepper":    "09715241-0cdd-44c9-a386-92a1340bdf4a",
-	"MeetingPrepper": "c0a76fd7-3f56-4a03-b2e7-7765da10c457",
-	"CallQualifier":  "3a7753e1-d21e-4cb7-a990-7820291274cd",
-	"DealBriefing":   "1204e84f-6edd-4782-bbdf-e5e070b400cf",
-	"EmailFollowUp":  "b2a9ae1b-2026-4dfa-9c67-101733a87a04",
-}
-
 // Tool describes an MCP tool exposed by the server.
 type Tool struct {
 	Name        string          `json:"name"`
@@ -36,14 +24,12 @@ type Tool struct {
 
 // AskOpts are options for the ask_anything_on_* tools.
 type AskOpts struct {
-	Agent    string // UUID
 	Language string
 }
 
 // Answer is the normalized result of an ask.
 type Answer struct {
 	Answer string          `json:"answer"`
-	Agent  string          `json:"agent,omitempty"`
 	Entity string          `json:"entity,omitempty"`
 	Raw    json.RawMessage `json:"-"`
 }
@@ -263,9 +249,6 @@ func extractText(raw json.RawMessage) (string, *toolResult, error) {
 
 func (c *Client) ask(ctx context.Context, tool, idKey, idVal, question string, opt AskOpts) (Answer, error) {
 	args := map[string]any{idKey: idVal, "question": question}
-	if opt.Agent != "" {
-		args["agentUuid"] = opt.Agent
-	}
 	if opt.Language != "" {
 		args["language"] = opt.Language
 	}
@@ -280,7 +263,7 @@ func (c *Client) ask(ctx context.Context, tool, idKey, idVal, question string, o
 	if tr.IsError {
 		return Answer{}, fmt.Errorf("ask failed: %s", text)
 	}
-	return Answer{Answer: text, Agent: opt.Agent, Entity: idVal, Raw: raw}, nil
+	return Answer{Answer: text, Entity: idVal, Raw: raw}, nil
 }
 
 // AskOnCall asks a natural-language question about a call. The MCP tool keys the

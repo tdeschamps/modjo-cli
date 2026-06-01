@@ -117,8 +117,9 @@ func buildBody(f *cmdutil.Factory, fields []string, input string) ([]byte, error
 // reported total is covered or a short/empty page arrives.
 func paginateAll(cmd *cobra.Command, client *modjoapi.Client, method, path string, query url.Values, body []byte, p *output.Printer) error {
 	var all []json.RawMessage
+	// Clone the caller's query once; each page only rewrites the page param.
+	q := maps.Clone(query)
 	for page := 1; ; page++ {
-		q := maps.Clone(query)
 		q.Set("page", strconv.Itoa(page))
 		raw, err := client.Raw(cmd.Context(), method, path, q, body)
 		if err != nil {

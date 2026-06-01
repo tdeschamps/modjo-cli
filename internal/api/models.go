@@ -43,23 +43,23 @@ type TranscriptBlock struct {
 	Content     string  `json:"content"`
 }
 
-// UnmarshalJSON reads the API's transcript block shape ({speaker:{name}}).
+// UnmarshalJSON reads the API's transcript block shape ({speaker:{name}}),
+// flattening speaker.name onto SpeakerName. An alias type carries the plain
+// fields (startTime/endTime/content + a pre-flattened speakerName) so only the
+// nested speaker needs bespoke handling — the shared fields can't drift.
 func (b *TranscriptBlock) UnmarshalJSON(data []byte) error {
+	type alias TranscriptBlock
 	var raw struct {
-		StartTime float64 `json:"startTime"`
-		EndTime   float64 `json:"endTime"`
-		Content   string  `json:"content"`
-		Speaker   struct {
+		alias
+		Speaker struct {
 			Name string `json:"name"`
 		} `json:"speaker"`
-		// Tolerate a pre-flattened speakerName too.
-		SpeakerName string `json:"speakerName"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
-	b.StartTime, b.EndTime, b.Content = raw.StartTime, raw.EndTime, raw.Content
-	if b.SpeakerName = raw.SpeakerName; b.SpeakerName == "" {
+	*b = TranscriptBlock(raw.alias)
+	if b.SpeakerName == "" {
 		b.SpeakerName = raw.Speaker.Name
 	}
 	return nil
@@ -162,38 +162,31 @@ type User struct {
 	ModifiedOn  string      `json:"modifiedOn,omitempty"`
 }
 
-// UnmarshalJSON maps the API's user shape onto User.
+// UnmarshalJSON maps the API's user shape onto User. An alias type decodes the
+// fields that map straight through (id, email, role, phone, timezone,
+// timestamps — and name/department/title if the API ever sends them
+// pre-composed); only the split firstName/lastName and job* fields, plus the
+// folding rules, need explicit handling.
 func (u *User) UnmarshalJSON(data []byte) error {
+	type alias User
 	var raw struct {
-		ID            json.Number `json:"id"`
-		Email         string      `json:"email"`
-		Name          string      `json:"name"`
-		FirstName     string      `json:"firstName"`
-		LastName      string      `json:"lastName"`
-		Role          string      `json:"role"`
-		Department    string      `json:"department"`
-		JobDepartment string      `json:"jobDepartment"`
-		JobTitle      string      `json:"jobTitle"`
-		PhoneNumber   string      `json:"phoneNumber"`
-		Timezone      string      `json:"timezone"`
-		CreatedOn     string      `json:"createdOn"`
-		ModifiedOn    string      `json:"modifiedOn"`
+		alias
+		FirstName     string `json:"firstName"`
+		LastName      string `json:"lastName"`
+		JobDepartment string `json:"jobDepartment"`
+		JobTitle      string `json:"jobTitle"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
-	u.ID = raw.ID
-	u.Email = raw.Email
-	u.Role = raw.Role
-	u.PhoneNumber = raw.PhoneNumber
-	u.Timezone = raw.Timezone
-	u.CreatedOn = raw.CreatedOn
-	u.ModifiedOn = raw.ModifiedOn
-	u.Title = raw.JobTitle
-	if u.Department = raw.Department; u.Department == "" {
+	*u = User(raw.alias)
+	if u.Title == "" {
+		u.Title = raw.JobTitle
+	}
+	if u.Department == "" {
 		u.Department = raw.JobDepartment
 	}
-	if u.Name = raw.Name; u.Name == "" {
+	if u.Name == "" {
 		u.Name = strings.TrimSpace(raw.FirstName + " " + raw.LastName)
 	}
 	return nil

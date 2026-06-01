@@ -23,7 +23,7 @@ func TestAskOnDealAndAccount(t *testing.T) {
 
 	for _, fn := range []func() (Answer, error){
 		func() (Answer, error) {
-			return c.AskOnDeal(context.Background(), "D1", "q", AskOpts{Agent: "a", Language: "fr"})
+			return c.AskOnDeal(context.Background(), "D1", "q", AskOpts{Language: "fr"})
 		},
 		func() (Answer, error) { return c.AskOnAccount(context.Background(), "A1", "q", AskOpts{}) },
 	} {
