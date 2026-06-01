@@ -4,3 +4,6 @@
 *.test
 .idea/
 .vscode/
+
+# Local build output
+/bin/
