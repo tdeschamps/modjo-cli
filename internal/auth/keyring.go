@@ -26,10 +26,15 @@ func NewKeyringStore(fallbackPath string) *KeyringStore {
 func (s *KeyringStore) Get(profile string) (Credential, error) {
 	raw, err := keyring.Get(keyringService, profile)
 	if err != nil {
-		if errors.Is(err, keyring.ErrNotFound) {
+		// Keychain has no entry (or is unavailable): consult the file fallback so
+		// a credential written there — e.g. via MODJO_NO_KEYRING — is still found
+		// when reading in normal keychain mode. Surface the original ErrNotFound
+		// only when the file has nothing either.
+		c, ferr := s.fallback.Get(profile)
+		if ferr != nil && errors.Is(err, keyring.ErrNotFound) {
 			return Credential{}, ErrNotFound
 		}
-		return s.fallback.Get(profile)
+		return c, ferr
 	}
 	var c Credential
 	if err := json.Unmarshal([]byte(raw), &c); err != nil {

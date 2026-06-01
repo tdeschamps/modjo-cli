@@ -139,7 +139,11 @@ func (f *Factory) resolve(key, flagVal string) (string, error) {
 }
 
 // CredentialStore returns the configured credential store, defaulting to a
-// keychain-backed store with a file fallback.
+// keychain-backed store with a file fallback. Setting MODJO_NO_KEYRING forces
+// the plain 0600 file store, skipping the OS keychain entirely — useful in CI,
+// headless shells, and on macOS where the keychain can pop an interactive
+// prompt. The file lives at the same path the keychain store falls back to, so
+// switching the toggle on or off keeps reading the same credentials.
 func (f *Factory) CredentialStore() (auth.Store, error) {
 	if f.CredStore != nil {
 		return f.CredStore, nil
@@ -148,8 +152,13 @@ func (f *Factory) CredentialStore() (auth.Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	fallback := credentialsPath(cfgPath)
-	store := auth.NewKeyringStore(fallback)
+	path := credentialsPath(cfgPath)
+	var store auth.Store
+	if os.Getenv("MODJO_NO_KEYRING") != "" {
+		store = auth.NewFileStore(path)
+	} else {
+		store = auth.NewKeyringStore(path)
+	}
 	f.CredStore = store
 	return store, nil
 }

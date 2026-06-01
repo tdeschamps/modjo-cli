@@ -49,6 +49,36 @@ func TestKeyringFallsBackToFile(t *testing.T) {
 	}
 }
 
+func TestKeyringGetFindsFileCredentialWhenKeychainEmpty(t *testing.T) {
+	// A credential written by the file store (e.g. via MODJO_NO_KEYRING) must be
+	// readable in normal keychain mode too: a healthy-but-empty keychain returns
+	// ErrNotFound, and Get must then consult the file fallback instead of giving
+	// up. Without this, logging in with MODJO_NO_KEYRING and then running a
+	// command without it reports "not authenticated".
+	keyring.MockInit() // keychain reachable but empty
+	fallback := t.TempDir() + "/credentials"
+	if err := NewFileStore(fallback).Set("default", Credential{Token: "file-token", Method: MethodAPIKey}); err != nil {
+		t.Fatal(err)
+	}
+	s := NewKeyringStore(fallback)
+	got, err := s.Get("default")
+	if err != nil {
+		t.Fatalf("Get should fall back to the file store, got %v", err)
+	}
+	if got.Token != "file-token" {
+		t.Errorf("Get = %q, want file-token", got.Token)
+	}
+}
+
+func TestKeyringGetTrulyMissing(t *testing.T) {
+	// Empty keychain and empty file → ErrNotFound, not a fallback error.
+	keyring.MockInit()
+	s := NewKeyringStore(t.TempDir() + "/credentials")
+	if _, err := s.Get("default"); err != ErrNotFound {
+		t.Errorf("Get with nothing stored = %v, want ErrNotFound", err)
+	}
+}
+
 func TestKeyringDeleteMissing(t *testing.T) {
 	keyring.MockInit()
 	s := NewKeyringStore(t.TempDir() + "/fallback")

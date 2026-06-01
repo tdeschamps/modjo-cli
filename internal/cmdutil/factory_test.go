@@ -161,11 +161,30 @@ func TestClientBuilders(t *testing.T) {
 }
 
 func TestCredentialStoreDefault(t *testing.T) {
+	t.Setenv("MODJO_NO_KEYRING", "")
 	io, _, _, _ := iostreams.Test()
 	f := &Factory{IOStreams: io, Flags: &GlobalFlags{}, ConfigPath: t.TempDir() + "/c.toml"}
 	s, err := f.CredentialStore()
 	if err != nil || s == nil {
 		t.Fatalf("store=%v err=%v", s, err)
+	}
+	if _, ok := s.(*auth.KeyringStore); !ok {
+		t.Errorf("default store should be *auth.KeyringStore, got %T", s)
+	}
+}
+
+func TestCredentialStoreNoKeyring(t *testing.T) {
+	// MODJO_NO_KEYRING forces the plain file store, skipping the OS keychain
+	// entirely (and the macOS keychain prompt that comes with it).
+	t.Setenv("MODJO_NO_KEYRING", "1")
+	io, _, _, _ := iostreams.Test()
+	f := &Factory{IOStreams: io, Flags: &GlobalFlags{}, ConfigPath: t.TempDir() + "/c.toml"}
+	s, err := f.CredentialStore()
+	if err != nil {
+		t.Fatalf("CredentialStore: %v", err)
+	}
+	if _, ok := s.(*auth.FileStore); !ok {
+		t.Errorf("with MODJO_NO_KEYRING set, store should be *auth.FileStore, got %T", s)
 	}
 }
 
