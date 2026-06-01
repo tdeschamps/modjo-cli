@@ -1,4 +1,4 @@
-# Logging in with a token from stdin validates against /me and stores the credential.
+# Logging in with a token from stdin validates against /users and stores the credential.
 stdin key.txt
 exec modjo auth login --with-token
 stderr 'Logged in'

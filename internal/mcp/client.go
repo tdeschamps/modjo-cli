@@ -15,8 +15,9 @@ import (
 	"sync"
 )
 
-// NativeAgents maps the built-in Modjo agent names to their UUIDs so
-// `--agent <name>` resolves offline (product spec Appendix B).
+// NativeAgents maps the built-in Modjo agent names to their UUIDs. The
+// ask_anything_on_* MCP tools accept an optional agentId; these are the
+// known built-ins (product spec Appendix B).
 var NativeAgents = map[string]string{
 	"CallSummary":    "741e9ffc-87be-4bca-bb0d-f167be8b963e",
 	"NextStepper":    "09715241-0cdd-44c9-a386-92a1340bdf4a",
@@ -263,7 +264,7 @@ func extractText(raw json.RawMessage) (string, *toolResult, error) {
 func (c *Client) ask(ctx context.Context, tool, idKey, idVal, question string, opt AskOpts) (Answer, error) {
 	args := map[string]any{idKey: idVal, "question": question}
 	if opt.Agent != "" {
-		args["agentId"] = opt.Agent
+		args["agentUuid"] = opt.Agent
 	}
 	if opt.Language != "" {
 		args["language"] = opt.Language
@@ -282,19 +283,22 @@ func (c *Client) ask(ctx context.Context, tool, idKey, idVal, question string, o
 	return Answer{Answer: text, Agent: opt.Agent, Entity: idVal, Raw: raw}, nil
 }
 
-// AskOnCall asks a natural-language question about a call.
+// AskOnCall asks a natural-language question about a call. The MCP tool keys the
+// call by "id".
 func (c *Client) AskOnCall(ctx context.Context, callID, question string, opt AskOpts) (Answer, error) {
-	return c.ask(ctx, "ask_anything_on_call", "callId", callID, question, opt)
+	return c.ask(ctx, "ask_anything_on_call", "id", callID, question, opt)
 }
 
-// AskOnDeal asks a natural-language question about a deal.
+// AskOnDeal asks a natural-language question about a deal. The MCP tool keys the
+// deal by its CRM id ("crmId").
 func (c *Client) AskOnDeal(ctx context.Context, crmID, question string, opt AskOpts) (Answer, error) {
-	return c.ask(ctx, "ask_anything_on_deal", "dealCrmId", crmID, question, opt)
+	return c.ask(ctx, "ask_anything_on_deal", "crmId", crmID, question, opt)
 }
 
-// AskOnAccount asks a natural-language question about an account.
+// AskOnAccount asks a natural-language question about an account. The MCP tool
+// keys the account by its CRM id ("crmId").
 func (c *Client) AskOnAccount(ctx context.Context, crmID, question string, opt AskOpts) (Answer, error) {
-	return c.ask(ctx, "ask_anything_on_account", "accountCrmId", crmID, question, opt)
+	return c.ask(ctx, "ask_anything_on_account", "crmId", crmID, question, opt)
 }
 
 // extractSSEData pulls the concatenated `data:` lines out of an SSE payload.

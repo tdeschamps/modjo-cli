@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/tdeschamps/modjo-cli/internal/cmd/accounts"
-	"github.com/tdeschamps/modjo-cli/internal/cmd/agents"
 	apicmd "github.com/tdeschamps/modjo-cli/internal/cmd/api"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/ask"
 	authcmd "github.com/tdeschamps/modjo-cli/internal/cmd/auth"
@@ -21,14 +20,16 @@ import (
 	"github.com/tdeschamps/modjo-cli/internal/cmd/deals"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/docs"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/doctor"
-	"github.com/tdeschamps/modjo-cli/internal/cmd/emails"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/info"
 	mcpcmd "github.com/tdeschamps/modjo-cli/internal/cmd/mcp"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/profiles"
+	"github.com/tdeschamps/modjo-cli/internal/cmd/tags"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/teams"
+	"github.com/tdeschamps/modjo-cli/internal/cmd/topics"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/update"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/users"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/version"
+	"github.com/tdeschamps/modjo-cli/internal/cmd/webhooks"
 	"github.com/tdeschamps/modjo-cli/internal/cmdutil"
 	"github.com/tdeschamps/modjo-cli/internal/updatecheck"
 )
@@ -111,10 +112,11 @@ See 'modjo <command> --help' for details on any command.`,
 		deals.NewCmdDeals(f),
 		accounts.NewCmdAccounts(f),
 		contacts.NewCmdContacts(f),
-		emails.NewCmdEmails(f),
 		users.NewCmdUsers(f),
 		teams.NewCmdTeams(f),
-		agents.NewCmdAgents(f),
+		tags.NewCmdTags(f),
+		topics.NewCmdTopics(f),
+		webhooks.NewCmdWebhooks(f),
 		ask.NewCmdAsk(f),
 		mcpcmd.NewCmdMCP(f),
 		apicmd.NewCmdAPI(f),

@@ -23,9 +23,10 @@ func NewCmdAccounts(f *cmdutil.Factory) *cobra.Command {
 
 func accountFields(io *iostreams.IOStreams) []output.Field {
 	return []output.Field{
-		{Name: "CRMID", Extract: func(v any) string { return v.(api.Account).CRMID }},
+		{Name: "ID", Extract: func(v any) string { return v.(api.Account).ID.String() }},
 		{Name: "NAME", Extract: func(v any) string { a := v.(api.Account); return io.Hyperlink(a.Name, a.CRMLink) }},
-		{Name: "DOMAIN", Extract: func(v any) string { return v.(api.Account).Domain }},
+		{Name: "CRM", Extract: func(v any) string { return v.(api.Account).CRM }},
+		{Name: "CRMID", Extract: func(v any) string { return v.(api.Account).CRMID }},
 	}
 }
 
@@ -54,7 +55,7 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 
 func newGetCmd(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <crmId>...",
+		Use:   "get <id>...",
 		Short: "Get one or more accounts",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -69,7 +70,7 @@ func newGetCmd(f *cmdutil.Factory) *cobra.Command {
 
 func newOpenCmd(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:   "open <crmId>",
+		Use:   "open <id>",
 		Short: "Open an account in the browser",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

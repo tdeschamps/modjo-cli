@@ -44,12 +44,16 @@ func New(opt Options) *Client {
 	}
 }
 
+// pagination is the page-based envelope the API returns: 1-indexed page, the
+// page size actually served, and the grand total across all pages.
 type pagination struct {
-	NextCursor string `json:"nextCursor"`
+	Page  int `json:"page"`
+	Size  int `json:"size"`
+	Total int `json:"total"`
 }
 
 type listResponse struct {
-	Values     []json.RawMessage `json:"values"`
+	Data       []json.RawMessage `json:"data"`
 	Pagination pagination        `json:"pagination"`
 }
 
@@ -114,23 +118,25 @@ func (c *Client) Raw(ctx context.Context, method, path string, query url.Values,
 	return c.do(ctx, method, path, query, r)
 }
 
-// queryFunc builds the query for a given cursor.
-type queryFunc func(cursor string) url.Values
+// queryFunc builds the query for a given 1-indexed page.
+type queryFunc func(page int) url.Values
 
-// paginate returns an iterator over a list endpoint, following nextCursor and
-// honoring limit. It decodes each raw value into a fresh T.
+// paginate returns an iterator over a list endpoint, walking pages (page=N,
+// 1-indexed) and honoring limit. It decodes each raw value into a fresh T and
+// stops once the reported total is covered, a short/empty page arrives, or the
+// limit is reached.
 func paginate[T any](ctx context.Context, c *Client, path string, q queryFunc, limit int) iter.Seq2[T, error] {
 	return func(yield func(T, error) bool) {
 		var zero T
-		cursor := ""
-		emitted := 0
-		for {
+		emitted := 0 // rows yielded toward the caller's limit
+		fetched := 0 // rows received from the server (for total-coverage stop)
+		for page := 1; ; page++ {
 			var resp listResponse
-			if err := c.doJSON(ctx, http.MethodGet, path, q(cursor), nil, &resp); err != nil {
+			if err := c.doJSON(ctx, http.MethodGet, path, q(page), nil, &resp); err != nil {
 				yield(zero, err)
 				return
 			}
-			for _, raw := range resp.Values {
+			for _, raw := range resp.Data {
 				var item T
 				if err := json.Unmarshal(raw, &item); err != nil {
 					if !yield(zero, fmt.Errorf("decode %s item: %w", path, err)) {
@@ -146,10 +152,20 @@ func paginate[T any](ctx context.Context, c *Client, path string, q queryFunc, l
 					return
 				}
 			}
-			if resp.Pagination.NextCursor == "" {
+			// Stop when the page is empty, when we've fetched every item the
+			// server reports (cumulative count — robust to short pages), or when
+			// total is unknown and a short page signals the end. `fetched` counts
+			// rows actually returned, independent of the limit-based `emitted`.
+			fetched += len(resp.Data)
+			if len(resp.Data) == 0 {
 				return
 			}
-			cursor = resp.Pagination.NextCursor
+			if resp.Pagination.Total > 0 && fetched >= resp.Pagination.Total {
+				return
+			}
+			if resp.Pagination.Total == 0 && len(resp.Data) < pageSize {
+				return
+			}
 		}
 	}
 }
@@ -176,99 +192,103 @@ func (c *Client) Contacts(ctx context.Context, f ContactFilter) iter.Seq2[Contac
 	return paginate[Contact](ctx, c, "/contacts", f.query, f.Limit)
 }
 
-// Emails lists emails.
-func (c *Client) Emails(ctx context.Context, f EmailFilter) iter.Seq2[Email, error] {
-	return paginate[Email](ctx, c, "/emails", f.query, f.Limit)
-}
-
 // Users lists users.
 func (c *Client) Users(ctx context.Context, f UserFilter) iter.Seq2[User, error] {
 	return paginate[User](ctx, c, "/users", f.query, f.Limit)
 }
 
 // Teams lists teams.
-func (c *Client) Teams(ctx context.Context) iter.Seq2[Team, error] {
-	return paginate[Team](ctx, c, "/teams", func(cursor string) url.Values {
-		q := url.Values{}
-		setPaging(q, 0, cursor)
-		return q
-	}, 0)
+func (c *Client) Teams(ctx context.Context, f TeamFilter) iter.Seq2[Team, error] {
+	return paginate[Team](ctx, c, "/teams", f.query, f.Limit)
 }
 
-// Agents lists agents.
-func (c *Client) Agents(ctx context.Context, f AgentFilter) iter.Seq2[Agent, error] {
-	return paginate[Agent](ctx, c, "/agents", f.query, f.Limit)
+// Tags lists call tags.
+func (c *Client) Tags(ctx context.Context, f TagFilter) iter.Seq2[Tag, error] {
+	return paginate[Tag](ctx, c, "/tags", f.query, f.Limit)
+}
+
+// Topics lists conversation topics.
+func (c *Client) Topics(ctx context.Context, f TopicFilter) iter.Seq2[Topic, error] {
+	return paginate[Topic](ctx, c, "/topics", f.query, f.Limit)
+}
+
+// Webhooks lists webhooks.
+func (c *Client) Webhooks(ctx context.Context, f WebhookFilter) iter.Seq2[Webhook, error] {
+	return paginate[Webhook](ctx, c, "/webhooks", f.query, f.Limit)
 }
 
 // --- single-object gets ---
 
-// GetCall fetches one call, optionally with relations.
-func (c *Client) GetCall(ctx context.Context, id string, relations ...string) (Call, error) {
+// GetCall fetches one call, optionally expanding related entities (one of
+// contacts, deal, account, users).
+func (c *Client) GetCall(ctx context.Context, id string, expand ...string) (Call, error) {
 	q := url.Values{}
-	if len(relations) > 0 {
-		q.Set("relations", strings.Join(relations, ","))
+	for _, e := range expand {
+		q.Add("expand", e)
 	}
 	var out Call
 	err := c.doJSON(ctx, http.MethodGet, "/calls/"+url.PathEscape(id), q, nil, &out)
 	return out, err
 }
 
-// GetDeal fetches one deal.
-func (c *Client) GetDeal(ctx context.Context, crmID string) (Deal, error) {
+// GetDeal fetches one deal by numeric id. Note: the spec exposes
+// GET /deals/{id}/summary but no plain GET /deals/{id}; this is kept for
+// callers that resolve a deal from the list endpoint.
+func (c *Client) GetDeal(ctx context.Context, id string) (Deal, error) {
 	var out Deal
-	err := c.doJSON(ctx, http.MethodGet, "/deals/"+url.PathEscape(crmID), nil, nil, &out)
+	err := c.doJSON(ctx, http.MethodGet, "/deals/"+url.PathEscape(id), nil, nil, &out)
 	return out, err
 }
 
-// GetAccount fetches one account.
-func (c *Client) GetAccount(ctx context.Context, crmID string) (Account, error) {
+// GetAccount fetches one account by numeric id.
+func (c *Client) GetAccount(ctx context.Context, id string) (Account, error) {
 	var out Account
-	err := c.doJSON(ctx, http.MethodGet, "/accounts/"+url.PathEscape(crmID), nil, nil, &out)
+	err := c.doJSON(ctx, http.MethodGet, "/accounts/"+url.PathEscape(id), nil, nil, &out)
 	return out, err
 }
 
-// GetContact fetches one contact.
-func (c *Client) GetContact(ctx context.Context, crmPersonID string) (Contact, error) {
+// GetContact fetches one contact by numeric id.
+func (c *Client) GetContact(ctx context.Context, id string) (Contact, error) {
 	var out Contact
-	err := c.doJSON(ctx, http.MethodGet, "/contacts/"+url.PathEscape(crmPersonID), nil, nil, &out)
+	err := c.doJSON(ctx, http.MethodGet, "/contacts/"+url.PathEscape(id), nil, nil, &out)
 	return out, err
 }
 
-// GetEmail fetches one email (including content).
-func (c *Client) GetEmail(ctx context.Context, id string) (Email, error) {
-	var out Email
-	err := c.doJSON(ctx, http.MethodGet, "/emails/"+url.PathEscape(id), nil, nil, &out)
-	return out, err
-}
-
-// GetUser fetches one user.
+// GetUser fetches one user by numeric id.
 func (c *Client) GetUser(ctx context.Context, id string) (User, error) {
 	var out User
 	err := c.doJSON(ctx, http.MethodGet, "/users/"+url.PathEscape(id), nil, nil, &out)
 	return out, err
 }
 
-// GetTeam fetches one team.
+// GetTeam fetches one team by numeric id.
 func (c *Client) GetTeam(ctx context.Context, id string) (Team, error) {
 	var out Team
 	err := c.doJSON(ctx, http.MethodGet, "/teams/"+url.PathEscape(id), nil, nil, &out)
 	return out, err
 }
 
-// GetAgent fetches one agent.
-func (c *Client) GetAgent(ctx context.Context, uuid string) (Agent, error) {
-	var out Agent
-	err := c.doJSON(ctx, http.MethodGet, "/agents/"+url.PathEscape(uuid), nil, nil, &out)
+// GetWebhook fetches one webhook by uuid.
+func (c *Client) GetWebhook(ctx context.Context, uuid string) (Webhook, error) {
+	var out Webhook
+	err := c.doJSON(ctx, http.MethodGet, "/webhooks/"+url.PathEscape(uuid), nil, nil, &out)
 	return out, err
 }
 
 // --- writes ---
 
-// CreateUserInput is the payload for creating a user.
+// CreateUserInput is the payload for creating a user (OpenAPI
+// CreateUserRequest). email, firstName and lastName are required; the rest are
+// optional.
 type CreateUserInput struct {
-	Email  string `json:"email"`
-	Role   string `json:"role,omitempty"`
-	TeamID string `json:"teamId,omitempty"`
+	Email         string `json:"email"`
+	FirstName     string `json:"firstName"`
+	LastName      string `json:"lastName"`
+	PhoneNumber   string `json:"phoneNumber,omitempty"`
+	JobTitle      string `json:"jobTitle,omitempty"`
+	JobDepartment string `json:"jobDepartment,omitempty"`
+	Role          string `json:"role,omitempty"`
+	Timezone      string `json:"timezone,omitempty"`
 }
 
 // CreateUser creates a user (REST-only; the MCP is read-only).
@@ -284,9 +304,34 @@ func (c *Client) DeleteUser(ctx context.Context, id string) error {
 	return c.doJSON(ctx, http.MethodDelete, "/users/"+url.PathEscape(id), nil, nil, nil)
 }
 
-// Me returns the authenticated principal, used to validate credentials.
+// CreateWebhookInput is the payload for creating a webhook (OpenAPI
+// CreateWebhookRequest). All fields are required.
+type CreateWebhookInput struct {
+	Name   string   `json:"name"`
+	URL    string   `json:"url"`
+	Events []string `json:"events"`
+}
+
+// CreateWebhook creates a webhook (POST /webhooks -> 201 Webhook).
+func (c *Client) CreateWebhook(ctx context.Context, in CreateWebhookInput) (Webhook, error) {
+	body, _ := json.Marshal(in)
+	var out Webhook
+	err := c.doJSON(ctx, http.MethodPost, "/webhooks", nil, bytes.NewReader(body), &out)
+	return out, err
+}
+
+// DeleteWebhook deletes a webhook by uuid (DELETE /webhooks/{uuid} -> 204).
+func (c *Client) DeleteWebhook(ctx context.Context, uuid string) error {
+	return c.doJSON(ctx, http.MethodDelete, "/webhooks/"+url.PathEscape(uuid), nil, nil, nil)
+}
+
+// Me validates the active credential against a lightweight authed endpoint and
+// returns its raw response. The API has no dedicated identity route, so we use
+// a minimal read of /users (page=1): it requires a valid key (401 otherwise),
+// stays cheap, and exists on every workspace. Callers use it only to confirm
+// reachability and auth, not to read a specific principal.
 func (c *Client) Me(ctx context.Context) (json.RawMessage, error) {
-	raw, err := c.do(ctx, http.MethodGet, "/me", nil, nil)
+	raw, err := c.do(ctx, http.MethodGet, "/users", url.Values{"page": {"1"}}, nil)
 	if err != nil {
 		return nil, err
 	}

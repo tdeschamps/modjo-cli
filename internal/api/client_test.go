@@ -10,7 +10,8 @@ import (
 	"testing"
 )
 
-// fixtureServer serves two pages of deals; page 2 has no nextCursor.
+// fixtureServer serves two pages of deals (50 + 25 of a 75 total) using the
+// API's page-based envelope: {"data":[...],"pagination":{page,size,total}}.
 func fixtureServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
@@ -18,23 +19,23 @@ func fixtureServer(t *testing.T) *httptest.Server {
 		if got := r.Header.Get("Authorization"); got != "Bearer test-token" {
 			t.Errorf("missing/wrong auth header: %q", got)
 		}
-		cursor := r.URL.Query().Get("cursor")
+		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 		w.Header().Set("Content-Type", "application/json")
-		makePage := func(start, n int, next string) listResponse {
+		makePage := func(start, n, pg int) listResponse {
 			vals := make([]json.RawMessage, n)
 			for i := 0; i < n; i++ {
 				vals[i] = json.RawMessage(fmt.Sprintf(`{"crmId":"D%d","name":"Deal %d","status":"Open"}`, start+i, start+i))
 			}
-			return listResponse{Values: vals, Pagination: pagination{NextCursor: next}}
+			return listResponse{Data: vals, Pagination: pagination{Page: pg, Size: 50, Total: 75}}
 		}
 		var resp listResponse
-		switch cursor {
-		case "":
-			resp = makePage(0, 50, "page2")
-		case "page2":
-			resp = makePage(50, 25, "")
+		switch page {
+		case 0, 1:
+			resp = makePage(0, 50, 1)
+		case 2:
+			resp = makePage(50, 25, 2)
 		default:
-			t.Errorf("unexpected cursor %q", cursor)
+			t.Errorf("unexpected page %d", page)
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	})
@@ -55,7 +56,7 @@ func TestDealsList_FollowsPagination(t *testing.T) {
 	c := newTestClient(srv.URL)
 
 	var got []Deal
-	for d, err := range c.Deals(context.Background(), DealFilter{Status: []string{"Open"}}) {
+	for d, err := range c.Deals(context.Background(), DealFilter{Status: "Open"}) {
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -66,6 +67,43 @@ func TestDealsList_FollowsPagination(t *testing.T) {
 	}
 	if got[0].CRMID != "D0" || got[74].CRMID != "D74" {
 		t.Errorf("unexpected ordering: first=%q last=%q", got[0].CRMID, got[74].CRMID)
+	}
+}
+
+func TestPaginate_ShortPageWithZeroSizeStillCoversTotal(t *testing.T) {
+	// Regression: the old stop test was `page*size >= total`. If the server
+	// reports Size=0 on pages, that formula never reaches Total and the loop
+	// would spin (or stop wrong). The cumulative-count stop must fetch all rows.
+	mux := http.NewServeMux()
+	mux.HandleFunc("/deals", func(w http.ResponseWriter, r *http.Request) {
+		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+		n := 50
+		if page >= 2 {
+			n = 20 // short final page; 50 + 20 = 70 total
+		}
+		vals := make([]json.RawMessage, n)
+		for i := range vals {
+			vals[i] = json.RawMessage(`{"crmId":"D","name":"x"}`)
+		}
+		// Size deliberately 0 to defeat any page*size formula.
+		_ = json.NewEncoder(w).Encode(listResponse{Data: vals, Pagination: pagination{Page: page, Size: 0, Total: 70}})
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	c := newTestClient(srv.URL)
+
+	count := 0
+	for _, err := range c.Deals(context.Background(), DealFilter{}) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		count++
+		if count > 200 {
+			t.Fatal("pagination did not terminate")
+		}
+	}
+	if count != 70 {
+		t.Errorf("want 70 rows across a short page with Size=0, got %d", count)
 	}
 }
 
@@ -113,20 +151,29 @@ func TestErrorMapping(t *testing.T) {
 
 func TestBuildQueryEncodesFilters(t *testing.T) {
 	f := CallFilter{
-		Account: "001ABC",
+		Account: "1234",
 		User:    "u1",
 		Since:   "2026-05-01",
 		Until:   "2026-05-29",
 		Limit:   50,
 	}
-	q := f.query("")
-	if q.Get("accountCrmId") != "001ABC" {
-		t.Errorf("accountCrmId = %q", q.Get("accountCrmId"))
+	q := f.query(1)
+	if q.Get("account_id") != "1234" {
+		t.Errorf("account_id = %q", q.Get("account_id"))
 	}
-	if q.Get("startDate") != "2026-05-01" {
-		t.Errorf("startDate = %q", q.Get("startDate"))
+	if q.Get("from") != "2026-05-01" {
+		t.Errorf("from = %q", q.Get("from"))
 	}
-	if got, _ := strconv.Atoi(q.Get("limit")); got != 50 {
-		t.Errorf("limit = %q", q.Get("limit"))
+	if q.Get("to") != "2026-05-29" {
+		t.Errorf("to = %q", q.Get("to"))
+	}
+	if q.Get("user_id") != "u1" {
+		t.Errorf("user_id = %q", q.Get("user_id"))
+	}
+	if got, _ := strconv.Atoi(q.Get("size")); got != 50 {
+		t.Errorf("size = %q", q.Get("size"))
+	}
+	if q.Get("page") != "1" {
+		t.Errorf("page = %q", q.Get("page"))
 	}
 }

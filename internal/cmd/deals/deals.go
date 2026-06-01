@@ -25,36 +25,25 @@ func NewCmdDeals(f *cmdutil.Factory) *cobra.Command {
 
 func dealFields(io *iostreams.IOStreams) []output.Field {
 	return []output.Field{
-		{Name: "CRMID", Extract: func(v any) string { return v.(api.Deal).CRMID }},
+		{Name: "ID", Extract: func(v any) string { return v.(api.Deal).ID.String() }},
 		{Name: "NAME", Extract: func(v any) string { d := v.(api.Deal); return io.Hyperlink(d.Name, d.CRMLink) }},
-		{Name: "ACCOUNT", Extract: func(v any) string { return v.(api.Deal).Account }},
 		{Name: "STATUS", Extract: func(v any) string { return io.StatusColor(v.(api.Deal).Status) }},
 		{Name: "AMOUNT", Extract: func(v any) string { return fmtAmount(v.(api.Deal)) }},
+		{Name: "STAGE", Extract: func(v any) string { return v.(api.Deal).Stage }},
 		{Name: "CLOSE", Extract: func(v any) string { return v.(api.Deal).CloseDate }},
-		{Name: "SOURCE", Extract: func(v any) string { return v.(api.Deal).Source }},
 	}
 }
 
 func newListCmd(f *cmdutil.Factory) *cobra.Command {
-	var status, source []string
-	var account, closeBefore, closeAfter, lossReason string
-	var amountMin, amountMax float64
+	var name, account, status string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List deals",
-		Long: `List deals. --status accepts canonical values or the aliases
+		Long: `List deals. --status accepts a single canonical value or the aliases
 open|won|lost|closed (mapped to "Open"|"Closed won"|"Closed lost"|"Closed").`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.APIClient()
-			if err != nil {
-				return err
-			}
-			cb, err := cmdutil.NormalizeDateFlag(f, closeBefore)
-			if err != nil {
-				return err
-			}
-			ca, err := cmdutil.NormalizeDateFlag(f, closeAfter)
 			if err != nil {
 				return err
 			}
@@ -63,33 +52,23 @@ open|won|lost|closed (mapped to "Open"|"Closed won"|"Closed lost"|"Closed").`,
 				return err
 			}
 			filter := api.DealFilter{
-				Status:      status,
-				Account:     account,
-				CloseBefore: cb,
-				CloseAfter:  ca,
-				AmountMin:   amountMin,
-				AmountMax:   amountMax,
-				Source:      source,
-				LossReason:  lossReason,
-				Limit:       limit,
+				Name:    name,
+				Account: account,
+				Status:  status,
+				Limit:   limit,
 			}
 			return cmdutil.CollectAndRender(cmd.Context(), f, client.Deals(cmd.Context(), filter), dealFields(f.IOStreams), "deals")
 		},
 	}
-	cmd.Flags().StringSliceVar(&status, "status", nil, "Filter by status (open|won|lost|closed or canonical)")
-	cmd.Flags().StringVar(&account, "account", "", "Filter by account crmId")
-	cmd.Flags().StringVar(&closeBefore, "close-before", "", "Close date before (YYYY-MM-DD or relative)")
-	cmd.Flags().StringVar(&closeAfter, "close-after", "", "Close date after (YYYY-MM-DD or relative)")
-	cmd.Flags().Float64Var(&amountMin, "amount-min", 0, "Minimum amount")
-	cmd.Flags().Float64Var(&amountMax, "amount-max", 0, "Maximum amount")
-	cmd.Flags().StringSliceVar(&source, "source", nil, "Filter by source(s)")
-	cmd.Flags().StringVar(&lossReason, "loss-reason", "", "Filter by loss reason")
+	cmd.Flags().StringVar(&name, "name", "", "Filter by name")
+	cmd.Flags().StringVar(&account, "account", "", "Filter by account ID (numeric)")
+	cmd.Flags().StringVar(&status, "status", "", "Filter by status (open|won|lost|closed or canonical)")
 	return cmd
 }
 
 func newGetCmd(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <crmId>...",
+		Use:   "get <id>...",
 		Short: "Get one or more deals",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -104,7 +83,7 @@ func newGetCmd(f *cmdutil.Factory) *cobra.Command {
 
 func newOpenCmd(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:   "open <crmId>",
+		Use:   "open <id>",
 		Short: "Open a deal in the browser",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

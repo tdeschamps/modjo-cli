@@ -52,11 +52,11 @@ func TestBuildFilter(t *testing.T) {
 		Clock:      text.FixedClock(time.Date(2026, 5, 29, 0, 0, 0, 0, time.UTC)),
 		ConfigPath: t.TempDir() + "/c.toml",
 	}
-	flt, err := buildFilter(f, &listFlags{account: "a", since: "30d", until: "2026-05-29", relations: "transcript,summary"})
+	flt, err := buildFilter(f, &listFlags{account: "a", since: "30d", until: "2026-05-29", expand: "deal,account"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if flt.Account != "a" || flt.Since != "2026-04-29" || len(flt.Relations) != 2 {
+	if flt.Account != "a" || flt.Since != "2026-04-29" || len(flt.Expand) != 2 {
 		t.Errorf("filter = %+v", flt)
 	}
 

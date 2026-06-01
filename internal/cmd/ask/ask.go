@@ -1,7 +1,6 @@
 // Package ask implements `modjo ask` — the natural-language layer over the MCP
-// ask_anything_on_* tools. It resolves friendly agent names to UUIDs, applies
-// the configured language, and enforces the upstream 60s analysis timeout
-// (surfaced as exit code 124).
+// ask_anything_on_* tools. It applies the configured language and enforces the
+// upstream 60s analysis timeout (surfaced as exit code 124).
 package ask
 
 import (
@@ -39,7 +38,7 @@ func NewCmdAsk(f *cmdutil.Factory) *cobra.Command {
 entity. Examples:
 
   modjo ask call 74969 "What objections came up and how were they handled?"
-  modjo ask deal 006XYZ "What are the risks and the single best next step?" --agent DealBriefing
+  modjo ask deal 006XYZ "What are the risks and the single best next step?"
 
 Run 'modjo ask' with no arguments on a terminal for a guided prompt.`,
 		Args: cobra.NoArgs,
@@ -65,19 +64,14 @@ type askParams struct {
 	name     string
 	id       string
 	question string
-	agent    string // UUID or friendly name
 	language string
 }
 
-// runAsk resolves the agent, runs the MCP analysis behind a spinner (enforcing
-// the 60s timeout → exit 124), and renders the answer (plain on a TTY, a JSON
-// envelope when piped). Shared by the typed subcommands and the interactive flow.
+// runAsk runs the MCP analysis behind a spinner (enforcing the 60s timeout →
+// exit 124) and renders the answer (plain on a TTY, a JSON envelope when piped).
+// Shared by the typed subcommands and the interactive flow.
 func runAsk(cmd *cobra.Command, f *cmdutil.Factory, p askParams) error {
 	client, err := f.MCPClient()
-	if err != nil {
-		return err
-	}
-	agentID, err := resolveAgent(cmd.Context(), f, p.agent)
 	if err != nil {
 		return err
 	}
@@ -96,7 +90,7 @@ func runAsk(cmd *cobra.Command, f *cmdutil.Factory, p askParams) error {
 	sp := f.IOStreams.NewSpinner(fmt.Sprintf("Analyzing %s %s…", p.name, p.id))
 	sp.Start()
 
-	opt := mcp.AskOpts{Agent: agentID, Language: lang}
+	opt := mcp.AskOpts{Language: lang}
 	var ans mcp.Answer
 	switch p.typ {
 	case askCall:
@@ -123,10 +117,9 @@ func runAsk(cmd *cobra.Command, f *cmdutil.Factory, p askParams) error {
 		pr, _ := f.Printer()
 		envelope := struct {
 			Answer string `json:"answer"`
-			Agent  string `json:"agent,omitempty"`
 			Entity string `json:"entity"`
 			Type   string `json:"type"`
-		}{ans.Answer, agentID, p.id, p.name}
+		}{ans.Answer, p.id, p.name}
 		return pr.PrintJSON(envelope)
 	}
 	fmt.Fprintln(f.IOStreams.Out, ans.Answer)
@@ -134,7 +127,7 @@ func runAsk(cmd *cobra.Command, f *cmdutil.Factory, p askParams) error {
 }
 
 func newAskSub(f *cmdutil.Factory, name string, typ askType, idHint string) *cobra.Command {
-	var agent, language string
+	var language string
 	cmd := &cobra.Command{
 		Use:   fmt.Sprintf("%s %s <question>", name, idHint),
 		Short: fmt.Sprintf("Ask about a %s", name),
@@ -145,12 +138,10 @@ func newAskSub(f *cmdutil.Factory, name string, typ askType, idHint string) *cob
 				name:     name,
 				id:       args[0],
 				question: strings.Join(args[1:], " "),
-				agent:    agent,
 				language: language,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&agent, "agent", "", "Agent UUID or friendly name (e.g. DealBriefing)")
 	cmd.Flags().StringVar(&language, "language", "", "Response language (defaults to profile)")
 	return cmd
 }
@@ -219,51 +210,4 @@ func resolveEntity(cmd *cobra.Command, f *cmdutil.Factory, typ askType, name str
 		return "", cmdutil.NewUsageError(err)
 	}
 	return ids[pick], nil
-}
-
-// resolveAgent turns a UUID or friendly name into a UUID. Native agent names
-// resolve offline; unknown names are looked up via `agents list`.
-func resolveAgent(ctx context.Context, f *cmdutil.Factory, agent string) (string, error) {
-	if agent == "" {
-		return "", nil
-	}
-	if looksLikeUUID(agent) {
-		return agent, nil
-	}
-	if uuid, ok := mcp.NativeAgents[agent]; ok {
-		return uuid, nil
-	}
-	// Fall back to a server lookup by name (case-insensitive).
-	client, err := f.APIClient()
-	if err != nil {
-		return "", err
-	}
-	for a, err := range client.Agents(ctx, api.AgentFilter{Search: agent}) {
-		if err != nil {
-			return "", err
-		}
-		if strings.EqualFold(a.Name, agent) {
-			return a.UUID, nil
-		}
-	}
-	return "", fmt.Errorf("could not resolve agent %q to a UUID (try `modjo agents list`)", agent)
-}
-
-func looksLikeUUID(s string) bool {
-	if len(s) != 36 {
-		return false
-	}
-	for i, r := range s {
-		if i == 8 || i == 13 || i == 18 || i == 23 {
-			if r != '-' {
-				return false
-			}
-			continue
-		}
-		isHex := (r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')
-		if !isHex {
-			return false
-		}
-	}
-	return true
 }

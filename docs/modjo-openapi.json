@@ -1,0 +1,62 @@
+{
+  "openapi": "3.1.0",
+  "servers": [{ "url": "https://api.modjo.ai//v2" }],
+  "info": { "title": "Modjo Public API", "version": "2.0.0" },
+  "_note": "Canonical Modjo Public API v2 spec. Endpoints: /accounts, /accounts/{id}, /calls, /calls/{id}, /calls/{id}/transcript, /calls/{id}/summaries, /calls/{id}/next-steps, /calls/{id}/notes, /calls/{id}/tags, /calls/{id}/crm-filling-answers, /contacts, /contacts/{id}, /deals, /deals/{id}/summary, /teams, /teams/{id}, /teams/{id}/members, /tags, /topics, /users, /users/{id}, /webhooks, /webhooks/{uuid}, /crm-filling-templates, /crm-filling-templates/{uuid}, /crm-filling-templates/{uuid}/fields. NO /emails, NO /agents.",
+  "pagination": { "params": "page (1-based, default 1), size (default 25, max 100)", "envelope": "{ data: [...], pagination: { page, size, total } }" },
+  "expand": "calls support ?expand=contacts,deal,account,users — when expanded the *Id/*Ids field is replaced by the inline object",
+  "schemas": {
+    "Account": ["id (number)", "name (string)", "crmId (string)", "crmIdentifier (string|null)", "crmLink (uri)", "crm (enum)", "createdOn (string|null)", "modifiedOn (string|null)"],
+    "Contact": ["id (number)", "name (string|null)", "email (string|null)", "phoneNumber (string|null)", "jobTitle (string|null)", "crmPersonId (string|null)", "crmIdentifier (string|null)", "crmLink (string|null)", "crm (enum|null)", "accountId (number|null)", "createdOn", "modifiedOn"],
+    "Deal": ["id (number)", "name (string)", "crmId (string)", "crmIdentifier (string|null)", "crmLink (uri)", "crm (enum)", "status (enum|null: Open|Closed won|Closed lost|Closed|Deleted)", "stage (string|null)", "closeDate (string|null)", "amount (number|null)", "currency (string|null)", "probability (number|null)", "lossReason (string|null)", "source (string|null)", "accountId (number|null)", "ownerId (number|null)", "createdOn", "modifiedOn"],
+    "CallExpanded": ["id (number)", "name (string)", "date (string|null)", "duration (number|null)", "direction (string|null)", "language (string|null)", "status (string: processing|completed|failed)", "createdOn", "modifiedOn", "phoneProviderCallId (string)", "contactIds (number[]) | contacts (ContactSummary[])", "dealId (number|null) | deal (obj)", "accountId (number|null) | account (obj)", "userIds (number[]) | users (UserSummary[])", "crmActivity (obj|null: {crmId, crmOrigin})"],
+    "TranscriptBlock": ["startTime (number)", "endTime (number)", "content (string)", "speaker (obj: {id, name|null, type: user|contact|unknown})"],
+    "User": ["id (number)", "email (string)", "firstName (string|null)", "lastName (string|null)", "phoneNumber (string|null)", "jobTitle (string|null)", "jobDepartment (string|null)", "role (string: user|manager|admin)", "timezone (string|null)", "createdOn", "modifiedOn"],
+    "Team": ["id (number)", "name (string)", "createdOn", "modifiedOn"],
+    "TeamMember": "same shape as User",
+    "Tag": ["id (number)", "name (string)", "color (string)", "createdOn", "modifiedOn"],
+    "Topic": ["id (number)", "name (string)", "slug (string|null)", "color (string|null)", "saidBy (enum|null: user|contact)", "createdOn", "modifiedOn"],
+    "Webhook": ["uuid (uuid)", "name (string)", "url (string)", "events (string[]: call_summarized|call_recording_deleted|call_transcript_deleted)", "createdOn", "modifiedOn"],
+    "CallSummary": ["uuid", "templateUuid", "templateTitle", "templateLength (short|detailed|adjusted)", "answer (string|null)", "language (string|null)", "createdOn", "modifiedOn"],
+    "NextStepItem": ["title (string)", "description (string)"],
+    "Note": ["id", "title (string|null)", "date (string)", "rawContent (any|null)", "status (DRAFT|PUBLISHED)", "type (USER|AI)", "publishedDate", "createdOn", "modifiedOn", "createdBy", "modifiedBy"]
+  },
+  "filters": {
+    "GET /accounts": "page, size, name",
+    "GET /contacts": "page, size, name",
+    "GET /deals": "page, size, name, account_id (int), status (enum single)",
+    "GET /calls": "page, size, expand, from (date-time), to (date-time), user_id (int), deal_id (int), account_id (int)",
+    "GET /teams": "page, size, name",
+    "GET /tags": "page, size",
+    "GET /topics": "page, size",
+    "GET /users": "page, size, email (exact)",
+    "GET /webhooks": "page, size"
+  },
+  "writes": {
+    "POST /calls": "UploadCallRequest (downloadMediaUrl, date, participants[], optional name/direction/duration/tags/account/deal) -> 202 {callId(uuid), status}",
+    "POST /users": "CreateUserRequest (email, firstName, lastName, optional phoneNumber/jobTitle/jobDepartment/role/timezone) -> 201 User. NOTE: requires firstName+lastName (not just email/teamId).",
+    "PATCH /users/{id}": "UpdateUserRequest (all optional) -> 200 User",
+    "DELETE /users/{id}": "204",
+    "POST /teams": "CreateTeamRequest (name) -> 201 Team",
+    "PATCH /teams/{id}": "UpdateTeamRequest (name) -> 200",
+    "DELETE /teams/{id}": "204",
+    "POST /webhooks": "CreateWebhookRequest (name, url, events[]) -> 201 Webhook",
+    "PATCH /webhooks/{uuid}": "UpdateWebhookRequest -> 200",
+    "DELETE /webhooks/{uuid}": "204",
+    "POST /calls/{id}/tags": "AddTagToCallRequest (tagId) -> 201 CallTag",
+    "DELETE /calls/{id}/tags/{tagId}": "204"
+  },
+  "errors": "Error body: {code, message}. 400 validation_error, 401 missing_api_key|invalid_api_key, 404 not_found, 409 conflict, 429 rate_limited, 500 internal_error.",
+  "single_object_endpoints": {
+    "GET /calls/{id}": "CallExpanded (supports ?expand=)",
+    "GET /calls/{id}/transcript": "{ data: TranscriptBlock[] } — empty while processing",
+    "GET /calls/{id}/summaries": "{ data: CallSummary[] }",
+    "GET /calls/{id}/next-steps": "{ data: NextStepItem[] }",
+    "GET /calls/{id}/notes": "{ data: Note[] }",
+    "GET /deals/{id}/summary": "DealSummaryContent { data: [{type, value}], language }",
+    "GET /accounts/{id}": "Account",
+    "GET /contacts/{id}": "Contact",
+    "GET /users/{id}": "User",
+    "GET /teams/{id}": "Team"
+  }
+}

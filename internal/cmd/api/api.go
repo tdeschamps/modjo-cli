@@ -10,6 +10,7 @@ import (
 	"maps"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -85,7 +86,7 @@ func NewCmdAPI(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringArrayVar(&params, "param", nil, "Query parameter key=value (repeatable)")
 	cmd.Flags().StringArrayVar(&fields, "field", nil, "JSON body field key=value (repeatable)")
 	cmd.Flags().StringVar(&input, "input", "", "Read the request body from a file (- for stdin)")
-	cmd.Flags().BoolVar(&paginate, "paginate", false, "Follow cursors and concatenate values")
+	cmd.Flags().BoolVar(&paginate, "paginate", false, "Follow pages and concatenate results")
 	return cmd
 }
 
@@ -111,34 +112,45 @@ func buildBody(f *cmdutil.Factory, fields []string, input string) ([]byte, error
 	return json.Marshal(m)
 }
 
-// paginateAll follows the {values, pagination:{nextCursor}} envelope and prints
-// the concatenated values as a single JSON array.
+// paginateAll follows the {data, pagination:{page,size,total}} envelope and
+// prints the concatenated rows as a single JSON array. It walks pages until the
+// reported total is covered or a short/empty page arrives.
 func paginateAll(cmd *cobra.Command, client *modjoapi.Client, method, path string, query url.Values, body []byte, p *output.Printer) error {
 	var all []json.RawMessage
-	cursor := ""
-	for {
+	for page := 1; ; page++ {
 		q := maps.Clone(query)
-		if cursor != "" {
-			q.Set("cursor", cursor)
-		}
+		q.Set("page", strconv.Itoa(page))
 		raw, err := client.Raw(cmd.Context(), method, path, q, body)
 		if err != nil {
 			return err
 		}
-		var page struct {
-			Values     []json.RawMessage `json:"values"`
+		var resp struct {
+			Data       []json.RawMessage `json:"data"`
 			Pagination struct {
-				NextCursor string `json:"nextCursor"`
+				Page  int `json:"page"`
+				Size  int `json:"size"`
+				Total int `json:"total"`
 			} `json:"pagination"`
 		}
-		if err := json.Unmarshal(raw, &page); err != nil {
+		if err := json.Unmarshal(raw, &resp); err != nil {
 			return fmt.Errorf("response is not a paginated list: %w", err)
 		}
-		all = append(all, page.Values...)
-		if page.Pagination.NextCursor == "" {
+		all = append(all, resp.Data...)
+		if len(resp.Data) == 0 {
 			break
 		}
-		cursor = page.Pagination.NextCursor
+		if resp.Pagination.Total > 0 && len(all) >= resp.Pagination.Total {
+			break
+		}
+		// Total unknown/zero: keep going until a short page (fewer rows than the
+		// server-reported page size) signals the end, rather than assuming the
+		// first page is the only one. Fall back to stopping if Size is also
+		// unreported, since we have no signal to continue safely.
+		if resp.Pagination.Total == 0 {
+			if resp.Pagination.Size <= 0 || len(resp.Data) < resp.Pagination.Size {
+				break
+			}
+		}
 	}
 	return p.PrintJSON(all)
 }

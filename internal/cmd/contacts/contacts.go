@@ -22,15 +22,15 @@ func NewCmdContacts(f *cmdutil.Factory) *cobra.Command {
 
 func contactFields() []output.Field {
 	return []output.Field{
-		{Name: "CRMPERSONID", Extract: func(v any) string { return v.(api.Contact).CRMPersonID }},
+		{Name: "ID", Extract: func(v any) string { return v.(api.Contact).ID.String() }},
 		{Name: "NAME", Extract: func(v any) string { return v.(api.Contact).Name }},
 		{Name: "EMAIL", Extract: func(v any) string { return v.(api.Contact).Email }},
-		{Name: "TITLE", Extract: func(v any) string { return v.(api.Contact).Title }},
+		{Name: "JOBTITLE", Extract: func(v any) string { return v.(api.Contact).JobTitle }},
 	}
 }
 
 func newListCmd(f *cmdutil.Factory) *cobra.Command {
-	var name, account string
+	var name string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List contacts",
@@ -44,18 +44,17 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			seq := client.Contacts(cmd.Context(), api.ContactFilter{Name: name, Account: account, Limit: limit})
+			seq := client.Contacts(cmd.Context(), api.ContactFilter{Name: name, Limit: limit})
 			return cmdutil.CollectAndRender(cmd.Context(), f, seq, contactFields(), "contacts")
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Filter by contact name")
-	cmd.Flags().StringVar(&account, "account", "", "Filter by account crmId")
 	return cmd
 }
 
 func newGetCmd(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <crmPersonId>...",
+		Use:   "get <id>...",
 		Short: "Get one or more contacts",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

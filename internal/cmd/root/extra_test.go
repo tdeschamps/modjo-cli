@@ -69,11 +69,9 @@ func TestCompletionBadShell(t *testing.T) {
 func TestListBadDateFlags(t *testing.T) {
 	run, _ := harness(t)
 	for _, args := range [][]string{
-		{"deals", "list", "--close-before", "05/01/2026"},
-		{"deals", "list", "--close-after", "nope"},
 		{"calls", "list", "--since", "bad/date"},
-		{"emails", "list", "--since", "13/13/13"},
-		{"emails", "list", "--until", "xyz"},
+		{"calls", "list", "--until", "xyz"},
+		{"calls", "export", "--since", "13/13/13"},
 	} {
 		if _, _, err := run(args...); err == nil {
 			t.Errorf("%v should reject the bad date", args)
@@ -84,7 +82,7 @@ func TestListBadDateFlags(t *testing.T) {
 func TestDealsListEmptyAmount(t *testing.T) {
 	// fmtAmount returns "" when amount is zero — render a zero-amount deal.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"values":[{"crmId":"D9","name":"Free","status":"Open"}],"pagination":{}}`))
+		_, _ = w.Write([]byte(`{"data":[{"crmId":"D9","name":"Free","status":"Open"}],"pagination":{}}`))
 	}))
 	defer srv.Close()
 	t.Setenv("MODJO_BASE_URL", srv.URL)
@@ -109,7 +107,7 @@ func noLinkHarness(t *testing.T) func(args ...string) error {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/calls/"):
-			_, _ = w.Write([]byte(`{"id":1,"title":"t"}`))
+			_, _ = w.Write([]byte(`{"id":1,"name":"t"}`))
 		case strings.Contains(r.URL.Path, "/deals/"):
 			_, _ = w.Write([]byte(`{"crmId":"D1","name":"n"}`))
 		case strings.Contains(r.URL.Path, "/accounts/"):
@@ -137,7 +135,6 @@ func noLinkHarness(t *testing.T) func(args ...string) error {
 func TestOpenWithoutCRMLink(t *testing.T) {
 	run := noLinkHarness(t)
 	for _, args := range [][]string{
-		{"calls", "open", "1"},
 		{"deals", "open", "D1"},
 		{"accounts", "open", "A1"},
 	} {
@@ -194,23 +191,16 @@ func TestJQPromotesToJSONInTableContext(t *testing.T) {
 	}
 }
 
-func TestEmailsGetTable(t *testing.T) {
-	run, _ := harness(t)
-	out, _, err := run("emails", "get", "5", "-o", "table")
-	if err != nil || !strings.Contains(out, "Subject:") {
-		t.Fatalf("emails get table: %v %s", err, out)
-	}
-}
-
 func TestSummaryMissing(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"id":1,"title":"t"}`)) // no summary
+		_, _ = w.Write([]byte(`{"id":1,"name":"t"}`)) // no summary
 	}))
 	defer srv.Close()
 	t.Setenv("MODJO_BASE_URL", srv.URL)
 	store := auth.NewMemoryStore()
 	_ = store.Set("default", auth.Credential{Token: "t"})
 	io, _, out, errOut := iostreams.Test()
+	io.SetStdoutTTY(true) // interactive → the "No summary" notice path runs
 	f := &cmdutil.Factory{IOStreams: io, Flags: &cmdutil.GlobalFlags{}, ConfigPath: t.TempDir() + "/c.toml", CredStore: store}
 	cmd := root.NewCmdRoot(f)
 	cmd.SetArgs([]string{"calls", "summary", "1"})

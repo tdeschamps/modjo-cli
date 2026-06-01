@@ -80,7 +80,7 @@ modjo calls list --account 001ABC --since 7d --all -o csv > contoso_calls.csv
 
 # 3. Ask the AI about a deal
 modjo deals list --account 001ABC --status open --json --jq '.[0].crmId'   # -> 006XYZ
-modjo ask deal 006XYZ "What are the risks and the single best next step?" --agent DealBriefing
+modjo ask deal 006XYZ "What are the risks and the single best next step?"
 
 # 4. Wire the CLI as an MCP server for Claude Desktop
 modjo mcp config --client claude-desktop      # paste into claude_desktop_config.json
@@ -101,10 +101,11 @@ modjo
 ├── deals       list | get | open
 ├── accounts    list | get | open
 ├── contacts    list | get
-├── emails      list | get
 ├── users       list | get | create | delete
 ├── teams       list | get
-├── agents      list | get
+├── tags        list
+├── topics      list
+├── webhooks    list | get | create | delete
 ├── ask         call | deal | account   (natural language over the MCP)
 ├── mcp         serve | tools | call | config
 ├── api         raw authenticated request escape hatch
@@ -117,7 +118,7 @@ modjo
 ```
 
 Every `list` command shares the same contract: filter flags (`--account`,
-`--status`, `--since 30d`, `--amount-min`, …), `--limit`/`--all` pagination, and
+`--status`, `--from`, `--to`, …), `--limit`/`--all` pagination, and
 `get` accepts one or more IDs.
 
 ## Output & scripting
@@ -145,6 +146,10 @@ $ modjo deals list --status open --json --jq '.[].amount' | paste -sd+ | bc
 `MODJO_API_KEY`/`MODJO_TOKEN` env → stored credential for the active profile.
 Secrets are stored in the **OS keychain** when available (macOS Keychain,
 Windows Credential Manager, libsecret/kwallet), with a `0600` file fallback.
+Set **`MODJO_NO_KEYRING`** to skip the keychain entirely and persist to the
+`0600` file — handy in CI, headless shells, or on macOS where the keychain can
+pop an interactive prompt. The file path is the same either way, so toggling it
+on or off keeps reading the same stored credential.
 Keys are never printed back — `modjo auth status` shows only a masked
 fingerprint. OAuth (device + PKCE) flows are spec'd and ready to enable when
 Modjo ships public OAuth clients.
@@ -168,7 +173,7 @@ default_limit = 50
 Manage it with `modjo config get/set/list/edit` and `modjo profiles list/use`.
 Relevant env vars: `MODJO_API_KEY`, `MODJO_TOKEN`, `MODJO_PROFILE`,
 `MODJO_BASE_URL`, `MODJO_MCP_URL`, `MODJO_OUTPUT`, `MODJO_NO_COLOR`,
-`MODJO_LANGUAGE`, `MODJO_DEBUG`.
+`MODJO_LANGUAGE`, `MODJO_DEBUG`, `MODJO_NO_KEYRING`.
 
 ## MCP integration
 

@@ -40,7 +40,7 @@ func TestContractMe(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if _, err := c.Me(ctx); err != nil {
-		t.Fatalf("GET /me failed: %v", err)
+		t.Fatalf("credential validation (GET /users?limit=1) failed: %v", err)
 	}
 }
 

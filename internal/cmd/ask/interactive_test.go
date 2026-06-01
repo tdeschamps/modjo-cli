@@ -17,7 +17,7 @@ func interactiveStub(t *testing.T) string {
 	t.Helper()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v2/accounts", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"values":[{"crmId":"A1","name":"Contoso"}],"pagination":{}}`))
+		_, _ = w.Write([]byte(`{"data":[{"crmId":"A1","name":"Contoso"}],"pagination":{}}`))
 	})
 	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
@@ -117,7 +117,7 @@ func TestAskInteractiveCallByID(t *testing.T) {
 func TestAskInteractiveNoAccountMatch(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v2/accounts", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"values":[],"pagination":{}}`))
+		_, _ = w.Write([]byte(`{"data":[],"pagination":{}}`))
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()

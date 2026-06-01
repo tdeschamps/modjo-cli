@@ -1,10 +1,13 @@
-// Package calls implements `modjo calls`: list, get, transcript, summary,
-// export, and open.
+// Package calls implements `modjo calls`: list, get, transcript, summary, and
+// export.
 package calls
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -28,7 +31,6 @@ func NewCmdCalls(f *cmdutil.Factory) *cobra.Command {
 		newTranscriptCmd(f),
 		newSummaryCmd(f),
 		newExportCmd(f),
-		newOpenCmd(f),
 	)
 	return cmd
 }
@@ -36,9 +38,11 @@ func NewCmdCalls(f *cmdutil.Factory) *cobra.Command {
 func callFields(io *iostreams.IOStreams) []output.Field {
 	return []output.Field{
 		{Name: "ID", Extract: func(v any) string { return v.(api.Call).ID.String() }},
-		{Name: "TITLE", Extract: func(v any) string { c := v.(api.Call); return io.Hyperlink(c.Title, c.CRMLink) }},
+		{Name: "NAME", Extract: func(v any) string { return io.Bold(v.(api.Call).Title) }},
 		{Name: "DATE", Extract: func(v any) string { return v.(api.Call).StartTime }},
-		{Name: "SUMMARY", Extract: func(v any) string { return truncate(v.(api.Call).Summary, 60) }},
+		{Name: "DURATION", Extract: func(v any) string { return fmtTime(v.(api.Call).Duration) }},
+		{Name: "DIRECTION", Extract: func(v any) string { return v.(api.Call).Direction }},
+		{Name: "STATUS", Extract: func(v any) string { return v.(api.Call).Status }},
 	}
 }
 
@@ -56,29 +60,27 @@ func buildFilter(f *cmdutil.Factory, fl *listFlags) (api.CallFilter, error) {
 		return api.CallFilter{}, err
 	}
 	return api.CallFilter{
-		Account:   fl.account,
-		Deal:      fl.deal,
-		Contact:   fl.contact,
-		User:      fl.user,
-		Since:     since,
-		Until:     until,
-		Relations: splitCSV(fl.relations),
-		Limit:     limit,
+		Account: fl.account,
+		Deal:    fl.deal,
+		User:    fl.user,
+		Since:   since,
+		Until:   until,
+		Expand:  splitCSV(fl.expand),
+		Limit:   limit,
 	}, nil
 }
 
 type listFlags struct {
-	account, deal, contact, user, since, until, relations string
+	account, deal, user, since, until, expand string
 }
 
 func bindListFlags(cmd *cobra.Command, fl *listFlags) {
-	cmd.Flags().StringVar(&fl.account, "account", "", "Filter by account crmId")
-	cmd.Flags().StringVar(&fl.deal, "deal", "", "Filter by deal crmId")
-	cmd.Flags().StringVar(&fl.contact, "contact", "", "Filter by contact crmId")
-	cmd.Flags().StringVar(&fl.user, "user", "", "Filter by user id")
+	cmd.Flags().StringVar(&fl.account, "account", "", "Filter by account id (numeric)")
+	cmd.Flags().StringVar(&fl.deal, "deal", "", "Filter by deal id (numeric)")
+	cmd.Flags().StringVar(&fl.user, "user", "", "Filter by user id (numeric)")
 	cmd.Flags().StringVar(&fl.since, "since", "", "Start date (YYYY-MM-DD or relative like 30d)")
 	cmd.Flags().StringVar(&fl.until, "until", "", "End date (YYYY-MM-DD or relative)")
-	cmd.Flags().StringVar(&fl.relations, "relations", "", "Comma-separated relations to include")
+	cmd.Flags().StringVar(&fl.expand, "expand", "", "Comma-separated relations to expand (contacts,deal,account,users)")
 }
 
 func newListCmd(f *cmdutil.Factory) *cobra.Command {
@@ -104,7 +106,7 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 }
 
 func newGetCmd(f *cmdutil.Factory) *cobra.Command {
-	var relations string
+	var expand string
 	cmd := &cobra.Command{
 		Use:   "get <callId>...",
 		Short: "Get one or more calls by ID",
@@ -114,14 +116,14 @@ func newGetCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rels := splitCSV(relations)
+			rels := splitCSV(expand)
 			get := func(ctx context.Context, id string) (api.Call, error) {
 				return client.GetCall(ctx, id, rels...)
 			}
 			return cmdutil.GetAndRender(cmd.Context(), f, args, get, callFields(f.IOStreams))
 		},
 	}
-	cmd.Flags().StringVar(&relations, "relations", "", "Comma-separated relations (transcript,summary,deal,account)")
+	cmd.Flags().StringVar(&expand, "expand", "", "Comma-separated relations to expand (contacts,deal,account,users)")
 	return cmd
 }
 
@@ -136,7 +138,7 @@ func newTranscriptCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			call, err := client.GetCall(cmd.Context(), args[0], "transcript")
+			blocks, err := fetchTranscript(cmd.Context(), client, args[0])
 			if err != nil {
 				return err
 			}
@@ -147,10 +149,10 @@ func newTranscriptCmd(f *cmdutil.Factory) *cobra.Command {
 			// Any machine format (json/csv/tsv/yaml) renders the raw blocks via
 			// the shared Printer; only the interactive table gets the human layout.
 			if !format.IsInteractive() {
-				return cmdutil.RenderSlice(f, call.Transcript, transcriptFields())
+				return cmdutil.RenderSlice(f, blocks, transcriptFields())
 			}
 			io := f.IOStreams
-			for _, b := range call.Transcript {
+			for _, b := range blocks {
 				var prefix string
 				if timestamps {
 					prefix += fmt.Sprintf("[%s] ", fmtTime(b.StartTime))
@@ -171,22 +173,40 @@ func newTranscriptCmd(f *cmdutil.Factory) *cobra.Command {
 func newSummaryCmd(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "summary <callId>",
-		Short: "Print a call's pre-generated summary",
+		Short: "Print a call's pre-generated summaries",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.APIClient()
 			if err != nil {
 				return err
 			}
-			call, err := client.GetCall(cmd.Context(), args[0], "summary")
+			summaries, err := fetchSummaries(cmd.Context(), client, args[0])
 			if err != nil {
 				return err
 			}
-			if call.Summary == "" {
+			format, err := f.OutputFormat()
+			if err != nil {
+				return err
+			}
+			// Machine formats render the structured summary rows; the interactive
+			// table prints each summary's answer in a readable layout.
+			if !format.IsInteractive() {
+				return cmdutil.RenderSlice(f, summaries, summaryFields())
+			}
+			if len(summaries) == 0 {
 				f.IOStreams.Errf("No summary available for call %s\n", args[0])
 				return nil
 			}
-			fmt.Fprintln(f.IOStreams.Out, call.Summary)
+			io := f.IOStreams
+			for i, s := range summaries {
+				if i > 0 {
+					fmt.Fprintln(io.Out)
+				}
+				if title := strings.TrimSpace(s.TemplateTitle); title != "" {
+					fmt.Fprintln(io.Out, io.Bold(title))
+				}
+				fmt.Fprintln(io.Out, s.Answer)
+			}
 			return nil
 		},
 	}
@@ -218,23 +238,38 @@ func newExportCmd(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-func newOpenCmd(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
-		Use:   "open <callId>",
-		Short: "Open a call in the browser",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := f.APIClient()
-			if err != nil {
-				return err
-			}
-			call, err := client.GetCall(cmd.Context(), args[0])
-			if err != nil {
-				return err
-			}
-			return cmdutil.OpenResource(f.IOStreams, "call", args[0], call.CRMLink)
-		},
+// dataEnvelope is the {data:[...]} wrapper the call sub-resource endpoints
+// (transcript, summaries) return. We decode it locally because the Foundation
+// client exposes these only via Raw.
+type dataEnvelope[T any] struct {
+	Data []T `json:"data"`
+}
+
+// fetchTranscript reads GET /calls/{id}/transcript and returns its blocks. The
+// endpoint yields an empty list while the call is still processing.
+func fetchTranscript(ctx context.Context, client *api.Client, id string) ([]api.TranscriptBlock, error) {
+	raw, err := client.Raw(ctx, http.MethodGet, "/calls/"+url.PathEscape(id)+"/transcript", nil, nil)
+	if err != nil {
+		return nil, err
 	}
+	var env dataEnvelope[api.TranscriptBlock]
+	if err := json.Unmarshal(raw, &env); err != nil {
+		return nil, err
+	}
+	return env.Data, nil
+}
+
+// fetchSummaries reads GET /calls/{id}/summaries.
+func fetchSummaries(ctx context.Context, client *api.Client, id string) ([]api.CallSummary, error) {
+	raw, err := client.Raw(ctx, http.MethodGet, "/calls/"+url.PathEscape(id)+"/summaries", nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	var env dataEnvelope[api.CallSummary]
+	if err := json.Unmarshal(raw, &env); err != nil {
+		return nil, err
+	}
+	return env.Data, nil
 }
 
 func splitCSV(s string) []string {
@@ -267,6 +302,15 @@ func transcriptFields() []output.Field {
 		{Name: "END", Extract: func(v any) string { return fmtTime(v.(api.TranscriptBlock).EndTime) }},
 		{Name: "SPEAKER", Extract: func(v any) string { return v.(api.TranscriptBlock).SpeakerName }},
 		{Name: "CONTENT", Extract: func(v any) string { return v.(api.TranscriptBlock).Content }},
+	}
+}
+
+// summaryFields describes the columns for machine-format summary output.
+func summaryFields() []output.Field {
+	return []output.Field{
+		{Name: "TEMPLATE", Extract: func(v any) string { return v.(api.CallSummary).TemplateTitle }},
+		{Name: "LENGTH", Extract: func(v any) string { return v.(api.CallSummary).TemplateLength }},
+		{Name: "ANSWER", Extract: func(v any) string { return truncate(v.(api.CallSummary).Answer, 80) }},
 	}
 }
 

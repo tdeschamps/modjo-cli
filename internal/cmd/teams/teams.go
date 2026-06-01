@@ -24,11 +24,14 @@ func teamFields() []output.Field {
 	return []output.Field{
 		{Name: "ID", Extract: func(v any) string { return v.(api.Team).ID.String() }},
 		{Name: "NAME", Extract: func(v any) string { return v.(api.Team).Name }},
+		{Name: "CREATED", Extract: func(v any) string { return v.(api.Team).CreatedOn }},
+		{Name: "MODIFIED", Extract: func(v any) string { return v.(api.Team).ModifiedOn }},
 	}
 }
 
 func newListCmd(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
+	var name string
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List teams",
 		Args:  cobra.NoArgs,
@@ -37,9 +40,16 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return cmdutil.CollectAndRender(cmd.Context(), f, client.Teams(cmd.Context()), teamFields(), "teams")
+			limit, err := f.EffectiveLimit()
+			if err != nil {
+				return err
+			}
+			seq := client.Teams(cmd.Context(), api.TeamFilter{Name: name, Limit: limit})
+			return cmdutil.CollectAndRender(cmd.Context(), f, seq, teamFields(), "teams")
 		},
 	}
+	cmd.Flags().StringVar(&name, "name", "", "Filter by team name")
+	return cmd
 }
 
 func newGetCmd(f *cmdutil.Factory) *cobra.Command {

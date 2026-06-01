@@ -61,7 +61,7 @@ func NewCmdDoctor(f *cmdutil.Factory) *cobra.Command {
 			sp := io.NewSpinner("Probing endpoints…")
 			sp.Start()
 
-			// REST reachability via /me.
+			// REST reachability + credential check (Me reads /users?limit=1).
 			client, err := f.APIClient()
 			restOK := false
 			var restErr error

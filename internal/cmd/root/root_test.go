@@ -73,7 +73,7 @@ func TestDealsListJSON(t *testing.T) {
 		if got := r.Header.Get("Authorization"); got != "Bearer test-token" {
 			t.Errorf("auth header = %q", got)
 		}
-		_, _ = w.Write([]byte(`{"values":[{"crmId":"D1","name":"Contoso","status":"Open","amount":42000}],"pagination":{"nextCursor":""}}`))
+		_, _ = w.Write([]byte(`{"data":[{"crmId":"D1","name":"Contoso","status":"Open","amount":42000}],"pagination":{}}`))
 	}))
 	defer srv.Close()
 
@@ -90,7 +90,7 @@ func TestDealsListStatusAliasMapped(t *testing.T) {
 	var sawStatus string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sawStatus = r.URL.Query().Get("status")
-		_, _ = w.Write([]byte(`{"values":[],"pagination":{}}`))
+		_, _ = w.Write([]byte(`{"data":[],"pagination":{}}`))
 	}))
 	defer srv.Close()
 
@@ -105,15 +105,15 @@ func TestDealsListStatusAliasMapped(t *testing.T) {
 
 func TestCallsListCSVColumns(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"values":[{"id":74969,"title":"Discovery","startDate":"2026-05-20","summary":"Talked pricing"}],"pagination":{}}`))
+		_, _ = w.Write([]byte(`{"data":[{"id":74969,"name":"Discovery","date":"2026-05-20","summary":"Talked pricing"}],"pagination":{}}`))
 	}))
 	defer srv.Close()
 
 	f, out := newTestFactory(t, srv)
-	if err := runCmd(t, f, "calls", "list", "-o", "csv", "--columns", "id,title"); err != nil {
+	if err := runCmd(t, f, "calls", "list", "-o", "csv", "--columns", "id,name"); err != nil {
 		t.Fatal(err)
 	}
-	want := "ID,TITLE\n74969,Discovery\n"
+	want := "ID,NAME\n74969,Discovery\n"
 	if out.String() != want {
 		t.Errorf("csv output:\n%q\nwant\n%q", out.String(), want)
 	}

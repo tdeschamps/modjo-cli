@@ -22,16 +22,22 @@ func fullStub(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	list := func(values string) string {
-		return `{"values":[` + values + `],"pagination":{"nextCursor":""}}`
+		return `{"data":[` + values + `],"pagination":{}}`
 	}
-	mux.HandleFunc("/v2/me", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"email":"me@acme.com","workspace":"acme-eu"}`))
-	})
 	mux.HandleFunc("/v2/calls", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(list(`{"id":74969,"title":"Discovery","startDate":"2026-05-20","summary":"Talked pricing"}`)))
+		_, _ = w.Write([]byte(list(`{"id":74969,"name":"Discovery","date":"2026-05-20"}`)))
 	})
+	// Call sub-resources (transcript, summaries) return their own {data:[...]}
+	// envelopes; the bare GET /calls/{id} returns the CallExpanded object.
 	mux.HandleFunc("/v2/calls/", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"id":74969,"title":"Discovery","startDate":"2026-05-20","summary":"Pricing recap","crmLink":"https://crm/c/1","transcript":[{"startTime":12,"endTime":20,"speakerName":"Alice","content":"Hello there"}]}`))
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/transcript"):
+			_, _ = w.Write([]byte(list(`{"startTime":12,"endTime":20,"speaker":{"name":"Alice"},"content":"Hello there"}`)))
+		case strings.HasSuffix(r.URL.Path, "/summaries"):
+			_, _ = w.Write([]byte(list(`{"uuid":"s1","templateTitle":"Recap","templateLength":"short","answer":"Pricing recap"}`)))
+		default:
+			_, _ = w.Write([]byte(`{"id":74969,"name":"Discovery","date":"2026-05-20","crmLink":"https://crm/c/1"}`))
+		}
 	})
 	mux.HandleFunc("/v2/deals", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(list(`{"crmId":"D1","name":"Contoso","status":"Open","amount":42000,"currency":"EUR","crmLink":"https://crm/d/1"}`)))
@@ -50,12 +56,6 @@ func fullStub(t *testing.T) *httptest.Server {
 	})
 	mux.HandleFunc("/v2/contacts/", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"crmPersonId":"P1","name":"Jean Martin"}`))
-	})
-	mux.HandleFunc("/v2/emails", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(list(`{"id":5,"subject":"Follow up","from":"me@acme.com","date":"2026-05-21"}`)))
-	})
-	mux.HandleFunc("/v2/emails/", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"id":5,"subject":"Follow up","from":"me@acme.com","date":"2026-05-21","content":"Body text"}`))
 	})
 	mux.HandleFunc("/v2/users", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
@@ -77,11 +77,25 @@ func fullStub(t *testing.T) *httptest.Server {
 	mux.HandleFunc("/v2/teams/", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"id":3,"name":"EMEA"}`))
 	})
-	mux.HandleFunc("/v2/agents", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(list(`{"uuid":"1204e84f-6edd-4782-bbdf-e5e070b400cf","name":"DealBriefing","origin":"modjo","description":"Exec summary"}`)))
+	mux.HandleFunc("/v2/tags", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(list(`{"id":11,"name":"Pricing","color":"#ff0000"}`)))
 	})
-	mux.HandleFunc("/v2/agents/", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"uuid":"1204e84f-6edd-4782-bbdf-e5e070b400cf","name":"DealBriefing","origin":"modjo"}`))
+	mux.HandleFunc("/v2/topics", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(list(`{"id":22,"name":"Competition","slug":"competition","saidBy":"contact"}`)))
+	})
+	mux.HandleFunc("/v2/webhooks", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			_, _ = w.Write([]byte(`{"uuid":"wh-1","name":"My hook","url":"https://hooks/x","events":["call_summarized"]}`))
+			return
+		}
+		_, _ = w.Write([]byte(list(`{"uuid":"wh-1","name":"My hook","url":"https://hooks/x","events":["call_summarized"]}`)))
+	})
+	mux.HandleFunc("/v2/webhooks/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		_, _ = w.Write([]byte(`{"uuid":"wh-1","name":"My hook","url":"https://hooks/x","events":["call_summarized"]}`))
 	})
 	// MCP JSON-RPC endpoint.
 	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
@@ -151,30 +165,28 @@ func TestAllListCommands(t *testing.T) {
 		want string
 	}{
 		{[]string{"calls", "list", "--json"}, "Discovery"},
-		{[]string{"calls", "get", "74969", "--json"}, "Pricing recap"},
+		{[]string{"calls", "get", "74969", "--json"}, "Discovery"},
 		{[]string{"calls", "summary", "74969"}, "Pricing recap"},
 		{[]string{"calls", "transcript", "74969", "-o", "table"}, "Alice"},
 		{[]string{"calls", "transcript", "74969", "--timestamps", "--speakers", "-o", "table"}, "00:12"},
 		{[]string{"calls", "transcript", "74969", "--json"}, "Hello there"},
-		{[]string{"calls", "open", "74969"}, ""},
 		{[]string{"calls", "export", "--since", "30d"}, "Discovery"},
 		{[]string{"deals", "list", "--json"}, "Contoso"},
 		{[]string{"deals", "get", "D1", "--json"}, "Contoso"},
 		{[]string{"deals", "open", "D1"}, ""},
-		{[]string{"accounts", "list", "--name", "Contoso", "--json"}, "contoso.com"},
+		{[]string{"accounts", "list", "--name", "Contoso", "--json"}, "Contoso"},
 		{[]string{"accounts", "get", "A1", "--json"}, "Contoso"},
 		{[]string{"accounts", "open", "A1"}, ""},
 		{[]string{"contacts", "list", "--json"}, "Jean Martin"},
 		{[]string{"contacts", "get", "P1", "--json"}, "Jean Martin"},
-		{[]string{"emails", "list", "--json"}, "Follow up"},
-		{[]string{"emails", "get", "5"}, "Body text"},
-		{[]string{"emails", "get", "5", "--json"}, "Body text"},
 		{[]string{"users", "list", "--json"}, "me@acme.com"},
 		{[]string{"users", "get", "1", "--json"}, "admin"},
 		{[]string{"teams", "list", "--json"}, "EMEA"},
 		{[]string{"teams", "get", "3", "--json"}, "EMEA"},
-		{[]string{"agents", "list", "--json"}, "DealBriefing"},
-		{[]string{"agents", "get", "1204e84f-6edd-4782-bbdf-e5e070b400cf", "--json"}, "DealBriefing"},
+		{[]string{"tags", "list", "--json"}, "Pricing"},
+		{[]string{"topics", "list", "--json"}, "Competition"},
+		{[]string{"webhooks", "list", "--json"}, "My hook"},
+		{[]string{"webhooks", "get", "wh-1", "--json"}, "My hook"},
 	}
 	for _, tc := range cases {
 		t.Run(strings.Join(tc.args, "_"), func(t *testing.T) {
@@ -202,13 +214,14 @@ func TestTableOutputAllResources(t *testing.T) {
 		{"accounts", "get", "A1", "-o", "csv"},
 		{"contacts", "list", "-o", "table"},
 		{"contacts", "get", "P1", "-o", "csv"},
-		{"emails", "list", "-o", "table"},
 		{"users", "list", "-o", "table"},
 		{"users", "get", "1", "-o", "csv"},
 		{"teams", "list", "-o", "table"},
 		{"teams", "get", "3", "-o", "csv"},
-		{"agents", "list", "-o", "table"},
-		{"agents", "get", "1204e84f-6edd-4782-bbdf-e5e070b400cf", "-o", "csv"},
+		{"tags", "list", "-o", "table"},
+		{"topics", "list", "-o", "table"},
+		{"webhooks", "list", "-o", "table"},
+		{"webhooks", "get", "wh-1", "-o", "csv"},
 	}
 	for _, args := range cases {
 		t.Run(strings.Join(args, "_"), func(t *testing.T) {
@@ -245,13 +258,14 @@ func TestBadOutputFormatAcrossCommands(t *testing.T) {
 		{"accounts", "get", "A1", "-o", "bogus"},
 		{"contacts", "list", "-o", "bogus"},
 		{"contacts", "get", "P1", "-o", "bogus"},
-		{"emails", "list", "-o", "bogus"},
 		{"users", "list", "-o", "bogus"},
 		{"users", "get", "1", "-o", "bogus"},
 		{"teams", "list", "-o", "bogus"},
 		{"teams", "get", "3", "-o", "bogus"},
-		{"agents", "list", "-o", "bogus"},
-		{"agents", "get", "1204e84f-6edd-4782-bbdf-e5e070b400cf", "-o", "bogus"},
+		{"tags", "list", "-o", "bogus"},
+		{"topics", "list", "-o", "bogus"},
+		{"webhooks", "list", "-o", "bogus"},
+		{"webhooks", "get", "wh-1", "-o", "bogus"},
 		{"calls", "transcript", "74969", "-o", "bogus"},
 	}
 	for _, args := range cmds {
@@ -268,8 +282,6 @@ func TestAskCommands(t *testing.T) {
 	for _, args := range [][]string{
 		{"ask", "deal", "D1", "What are the risks?"},
 		{"ask", "deal", "D1", "What are the risks?", "--json"},
-		{"ask", "deal", "D1", "risks?", "--agent", "DealBriefing"},
-		{"ask", "deal", "D1", "risks?", "--agent", "1204e84f-6edd-4782-bbdf-e5e070b400cf"},
 		{"ask", "call", "74969", "objections?"},
 		{"ask", "account", "A1", "summary?"},
 	} {
@@ -293,7 +305,7 @@ func TestMCPCommands(t *testing.T) {
 	if err != nil || !strings.Contains(out, "ask_anything_on_deal") {
 		t.Fatalf("mcp tools table: %v %s", err, out)
 	}
-	out, _, err = run("mcp", "call", "ask_anything_on_deal", "--args", `{"dealCrmId":"D1"}`)
+	out, _, err = run("mcp", "call", "ask_anything_on_deal", "--args", `{"crmId":"D1"}`)
 	if err != nil || !strings.Contains(out, "pricing") {
 		t.Fatalf("mcp call: %v %s", err, out)
 	}
@@ -341,11 +353,10 @@ func TestAPIPaginateSendsBody(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b, _ := io.ReadAll(r.Body)
 		gotBodies = append(gotBodies, string(b))
-		cursor := r.URL.Query().Get("cursor")
-		if cursor == "" {
-			_, _ = w.Write([]byte(`{"values":[{"id":1}],"pagination":{"nextCursor":"p2"}}`))
+		if r.URL.Query().Get("page") == "1" {
+			_, _ = w.Write([]byte(`{"data":[{"id":1}],"pagination":{"page":1,"size":1,"total":2}}`))
 		} else {
-			_, _ = w.Write([]byte(`{"values":[{"id":2}],"pagination":{"nextCursor":""}}`))
+			_, _ = w.Write([]byte(`{"data":[{"id":2}],"pagination":{"page":2,"size":1,"total":2}}`))
 		}
 	}))
 	defer srv.Close()
@@ -444,14 +455,14 @@ func TestMiscCommands(t *testing.T) {
 
 func TestUserWrites(t *testing.T) {
 	run, _ := harness(t)
-	if _, _, err := run("users", "create", "--email", "new@acme.com", "--role", "rep"); err != nil {
+	if _, _, err := run("users", "create", "--first-name", "New", "--last-name", "Rep", "--email", "new@acme.com", "--role", "rep"); err != nil {
 		t.Fatalf("users create: %v", err)
 	}
-	if _, errOut, err := run("users", "create", "--email", "x@y.com", "--dry-run"); err != nil || !strings.Contains(errOut, "dry-run") {
+	if _, errOut, err := run("users", "create", "--first-name", "X", "--last-name", "Y", "--email", "x@y.com", "--dry-run"); err != nil || !strings.Contains(errOut, "dry-run") {
 		t.Fatalf("users create dry-run: %v %s", err, errOut)
 	}
-	if _, _, err := run("users", "create"); err == nil {
-		t.Error("users create without --email should fail")
+	if _, _, err := run("users", "create", "--email", "x@y.com"); err == nil {
+		t.Error("users create without --first-name/--last-name should fail")
 	}
 	if _, errOut, err := run("users", "delete", "5", "--yes"); err != nil || !strings.Contains(errOut, "Deleted") {
 		t.Fatalf("users delete --yes: %v %s", err, errOut)
