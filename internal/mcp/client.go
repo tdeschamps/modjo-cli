@@ -247,6 +247,23 @@ func extractText(raw json.RawMessage) (string, *toolResult, error) {
 	return b.String(), &tr, nil
 }
 
+// unwrapAnswer unwraps the {"answer":"..."} envelope the ask_anything_on_*
+// tools wrap their reply in, returning the inner text. If the content isn't
+// that envelope (plain text, or some other JSON), it's returned unchanged.
+func unwrapAnswer(text string) string {
+	trimmed := strings.TrimSpace(text)
+	if !strings.HasPrefix(trimmed, "{") {
+		return text
+	}
+	var env struct {
+		Answer string `json:"answer"`
+	}
+	if err := json.Unmarshal([]byte(trimmed), &env); err != nil {
+		return text
+	}
+	return env.Answer
+}
+
 func (c *Client) ask(ctx context.Context, tool, idKey, idVal, question string, opt AskOpts) (Answer, error) {
 	args := map[string]any{idKey: idVal, "question": question}
 	if opt.Language != "" {
@@ -260,6 +277,7 @@ func (c *Client) ask(ctx context.Context, tool, idKey, idVal, question string, o
 	if err != nil {
 		return Answer{}, err
 	}
+	text = unwrapAnswer(text)
 	if tr.IsError {
 		return Answer{}, fmt.Errorf("ask failed: %s", text)
 	}
