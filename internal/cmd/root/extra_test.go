@@ -59,6 +59,40 @@ func TestNoArgsShowsHelp(t *testing.T) {
 	}
 }
 
+func TestHelpBoldStandardTitlesWithColorEnabled(t *testing.T) {
+	run, _ := harness(t)
+	out, _, err := run("calls", "--help", "--color", "always")
+	if err != nil {
+		t.Fatalf("calls --help --color always: %v", err)
+	}
+	for _, want := range []string{
+		"\x1b[1mUsage:\x1b[0m",
+		"\x1b[1mAvailable Commands:\x1b[0m",
+		"\x1b[1mFlags:\x1b[0m",
+		"\x1b[1mGlobal Flags:\x1b[0m",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("expected bold heading %q in help output:\n%s", want, out)
+		}
+	}
+}
+
+func TestHelpTitlesRemainPlainWhenColorDisabled(t *testing.T) {
+	run, _ := harness(t)
+	out, _, err := run("calls", "--help", "--color", "never")
+	if err != nil {
+		t.Fatalf("calls --help --color never: %v", err)
+	}
+	for _, want := range []string{"Usage:", "Available Commands:", "Flags:", "Global Flags:"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("expected plain heading %q in help output:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "\x1b[1m") {
+		t.Fatalf("did not expect ANSI bold sequences with color disabled:\n%s", out)
+	}
+}
+
 func TestCompletionBadShell(t *testing.T) {
 	run, _ := harness(t)
 	if _, _, err := run("completion", "tcsh"); err == nil {

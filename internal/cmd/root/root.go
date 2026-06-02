@@ -5,6 +5,7 @@ package root
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -70,6 +71,7 @@ See 'modjo <command> --help' for details on any command.`,
 	cmd.SetOut(f.IOStreams.Out)
 	cmd.SetErr(f.IOStreams.ErrOut)
 	cmd.SetIn(f.IOStreams.In)
+	configureHelpTemplates(cmd, f)
 
 	pf := cmd.PersistentFlags()
 	pf.StringVar(&flags.Profile, "profile", "", "Use a specific profile")
@@ -129,6 +131,47 @@ See 'modjo <command> --help' for details on any command.`,
 	)
 
 	return cmd
+}
+
+// standardHelpHeadings are the Cobra section titles we bold.
+var standardHelpHeadings = []string{"Usage:", "Available Commands:", "Flags:", "Global Flags:"}
+
+// configureHelpTemplates keeps Cobra's default help/usage layout but bolds the
+// standard section headings when color is enabled.
+//
+// Two subtleties drive the design:
+//   - Color must be read at render time, not when the template is built: the
+//     templates are installed during command construction, long before flags
+//     are parsed. A `bold` template func defers the io.Bold call until render.
+//   - `--help` does not run PersistentPreRunE, so applyPresentation (which
+//     honors --color/--no-color) is invoked from the wrapped help/usage funcs;
+//     otherwise `--color always` on a help invocation would be ignored.
+func configureHelpTemplates(cmd *cobra.Command, f *cmdutil.Factory) {
+	io := f.IOStreams
+	cobra.AddTemplateFunc("bold", func(s string) string { return io.Bold(s) })
+
+	boldTemplate := func(tmpl string) string {
+		pairs := make([]string, 0, len(standardHelpHeadings)*2)
+		for _, h := range standardHelpHeadings {
+			pairs = append(pairs, h, fmt.Sprintf(`{{bold "%s"}}`, h))
+		}
+		return strings.NewReplacer(pairs...).Replace(tmpl)
+	}
+	cmd.SetUsageTemplate(boldTemplate(cmd.UsageTemplate()))
+	cmd.SetHelpTemplate(boldTemplate(cmd.HelpTemplate()))
+
+	// Resolve presentation before help/usage renders, since --help bypasses
+	// PersistentPreRunE. Wrap the inherited funcs so subcommands get it too.
+	defaultHelp := cmd.HelpFunc()
+	cmd.SetHelpFunc(func(c *cobra.Command, args []string) {
+		applyPresentation(f)
+		defaultHelp(c, args)
+	})
+	defaultUsage := cmd.UsageFunc()
+	cmd.SetUsageFunc(func(c *cobra.Command) error {
+		applyPresentation(f)
+		return defaultUsage(c)
+	})
 }
 
 // applyPresentation resolves color/TTY presentation from flags before commands run.
