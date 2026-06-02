@@ -109,12 +109,17 @@ func runAsk(cmd *cobra.Command, f *cmdutil.Factory, p askParams) error {
 		return err
 	}
 
-	format, err := f.OutputFormat()
-	if err != nil {
-		return err
-	}
-	if !format.IsInteractive() {
-		pr, _ := f.Printer()
+	// An ask answer is freeform prose, not a table, so the usual "non-TTY →
+	// JSON" default doesn't apply: print the readable answer unless the user
+	// *explicitly* asked for structured output (--json, -o <non-table>, or --jq
+	// which needs JSON to filter). This keeps the guided/interactive flow and
+	// plain `modjo ask call <id> "..."` human-readable while still supporting
+	// `--json` for scripting.
+	if f.Flags.JSON || f.Flags.JQ != "" || (f.Flags.Output != "" && f.Flags.Output != "table") {
+		pr, err := f.Printer()
+		if err != nil {
+			return err
+		}
 		envelope := struct {
 			Answer string `json:"answer"`
 			Entity string `json:"entity"`
