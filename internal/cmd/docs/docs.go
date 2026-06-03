@@ -9,7 +9,7 @@ import (
 	"github.com/tdeschamps/modjo-cli/internal/cmdutil"
 )
 
-const docsBaseURL = "https://cli.modjo.ai/docs"
+const docsBaseURL = "https://github.com/tdeschamps/modjo-cli/tree/main/docs"
 
 // NewCmdDocs returns the docs command.
 func NewCmdDocs(f *cmdutil.Factory) *cobra.Command {

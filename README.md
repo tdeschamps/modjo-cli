@@ -50,7 +50,7 @@ human-readable in a TTY, and first-class auth.
 brew install modjo/tap/modjo
 
 # Shell installer
-curl -fsSL https://cli.modjo.ai/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/tdeschamps/modjo-cli/main/install.sh | sh
 
 # Scoop / winget (Windows)
 scoop install modjo

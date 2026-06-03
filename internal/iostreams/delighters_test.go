@@ -113,13 +113,13 @@ func TestBannerRendersToStderr(t *testing.T) {
 		Headline:  "Logged in",
 		Body:      "workspace acme-eu",
 		NextSteps: []string{"Run modjo calls list"},
-		Links:     []string{"https://cli.modjo.ai/docs"},
+		Links:     []string{"https://github.com/tdeschamps/modjo-cli"},
 	})
 	if out.Len() != 0 {
 		t.Errorf("banner must not write to stdout, got %q", out.String())
 	}
 	e := errOut.String()
-	for _, want := range []string{"Logged in", "workspace acme-eu", "Next steps:", "Run modjo calls list", "Links:", "cli.modjo.ai"} {
+	for _, want := range []string{"Logged in", "workspace acme-eu", "Next steps:", "Run modjo calls list", "Links:", "github.com/tdeschamps/modjo-cli"} {
 		if !strings.Contains(e, want) {
 			t.Errorf("banner missing %q:\n%s", want, e)
 		}

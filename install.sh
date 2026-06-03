@@ -2,7 +2,7 @@
 # Modjo CLI installer. Downloads the latest signed release binary for the host
 # platform from GitHub Releases and installs it to a bin directory on PATH.
 #
-#   curl -fsSL https://cli.modjo.ai/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/tdeschamps/modjo-cli/main/install.sh | sh
 #
 # Override the install dir with MODJO_INSTALL_DIR, or the version with
 # MODJO_VERSION (defaults to the latest release).

@@ -49,7 +49,7 @@ brews:
   - repository:
       owner: modjo
       name: homebrew-tap
-    homepage: "https://cli.modjo.ai"
+    homepage: "https://github.com/tdeschamps/modjo-cli"
     description: "Script the Modjo API and drive it with natural language"
     install: |
       bin.install "modjo"
@@ -60,7 +60,7 @@ scoops:
   - repository:
       owner: modjo
       name: scoop-bucket
-    homepage: "https://cli.modjo.ai"
+    homepage: "https://github.com/tdeschamps/modjo-cli"
     description: "Script the Modjo API and drive it with natural language"
 
 dockers:

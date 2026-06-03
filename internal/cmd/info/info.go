@@ -26,7 +26,7 @@ import (
 //go:embed logo.txt
 var logo string
 
-const docsURL = "https://cli.modjo.ai/docs"
+const docsURL = "https://github.com/tdeschamps/modjo-cli#readme"
 
 // data is the structured form of `info`, used for json/piped output.
 type data struct {
