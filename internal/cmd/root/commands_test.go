@@ -201,6 +201,43 @@ func TestAllListCommands(t *testing.T) {
 	}
 }
 
+// TestWebhookWrites exercises the create/delete paths (and their validation,
+// dry-run, and confirmation branches) which the read-only cases don't reach.
+func TestWebhookWrites(t *testing.T) {
+	run, _ := harness(t)
+
+	// create: happy path (stub returns the webhook; banner + rendered row).
+	if out, errOut, err := run("webhooks", "create", "--name", "My hook", "--url", "https://hooks/x", "--event", "call_summarized", "--json"); err != nil {
+		t.Fatalf("create: %v (%s)", err, errOut)
+	} else if !strings.Contains(out+errOut, "wh-1") {
+		t.Errorf("create output missing webhook: out=%s err=%s", out, errOut)
+	}
+
+	// create: missing required flags → usage error.
+	if _, _, err := run("webhooks", "create", "--name", "x"); err == nil {
+		t.Error("create without --url/--event should error")
+	}
+
+	// create: dry-run must not render a created webhook.
+	if out, errOut, err := run("webhooks", "create", "--name", "n", "--url", "u", "--event", "call_summarized", "--dry-run"); err != nil {
+		t.Fatalf("create dry-run: %v", err)
+	} else if !strings.Contains(errOut, "dry-run") || strings.Contains(out, "wh-1") {
+		t.Errorf("dry-run should announce, not create: out=%s err=%s", out, errOut)
+	}
+
+	// delete: --yes skips the confirmation prompt and hits the stub (204).
+	if _, errOut, err := run("webhooks", "delete", "wh-1", "--yes"); err != nil {
+		t.Fatalf("delete --yes: %v (%s)", err, errOut)
+	}
+
+	// delete: dry-run must not call the API.
+	if _, errOut, err := run("webhooks", "delete", "wh-1", "--dry-run"); err != nil {
+		t.Fatalf("delete dry-run: %v", err)
+	} else if !strings.Contains(errOut, "dry-run") {
+		t.Errorf("delete dry-run should announce: %s", errOut)
+	}
+}
+
 // TestTableOutputAllResources renders every resource as a table/csv so the
 // per-column Extract closures (and helpers like fmtAmount/truncate) execute.
 func TestTableOutputAllResources(t *testing.T) {
@@ -208,6 +245,8 @@ func TestTableOutputAllResources(t *testing.T) {
 	cases := [][]string{
 		{"calls", "list", "-o", "table"},
 		{"calls", "get", "74969", "-o", "table"},
+		{"calls", "summary", "74969", "-o", "table"},
+		{"calls", "summary", "74969", "-o", "csv"},
 		{"deals", "list", "-o", "table"},
 		{"deals", "get", "D1", "-o", "csv"},
 		{"accounts", "list", "--name", "Contoso", "-o", "table"},

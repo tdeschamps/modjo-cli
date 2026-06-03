@@ -269,6 +269,61 @@ func TestDeleteConfirmDecline(t *testing.T) {
 	_ = cmd.Execute()
 }
 
+func TestCallSummaryEmpty(t *testing.T) {
+	// An interactive `calls summary` with no summaries hits the "No summary
+	// available" branch instead of rendering rows.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+	defer srv.Close()
+	t.Setenv("MODJO_BASE_URL", srv.URL)
+	store := auth.NewMemoryStore()
+	_ = store.Set("default", auth.Credential{Token: "t"})
+
+	io, _, _, errBuf := iostreams.Test()
+	io.SetStdoutTTY(true) // force the interactive (non-machine) path
+	f := &cmdutil.Factory{IOStreams: io, Flags: &cmdutil.GlobalFlags{}, ConfigPath: t.TempDir() + "/c.toml", CredStore: store}
+	cmd := root.NewCmdRoot(f)
+	cmd.SetArgs([]string{"calls", "summary", "42"})
+	cmd.SetOut(io.Out)
+	cmd.SetErr(errBuf)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("summary (empty): %v", err)
+	}
+	if !strings.Contains(errBuf.String(), "No summary available") {
+		t.Errorf("expected empty-summary notice, got: %s", errBuf.String())
+	}
+}
+
+func TestWebhookDeleteConfirmProceed(t *testing.T) {
+	var deleted bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			deleted = true
+			w.WriteHeader(http.StatusNoContent)
+		}
+	}))
+	defer srv.Close()
+	t.Setenv("MODJO_BASE_URL", srv.URL)
+	store := auth.NewMemoryStore()
+	_ = store.Set("default", auth.Credential{Token: "t"})
+
+	io, in, _, _ := iostreams.Test()
+	io.SetNeverPrompt(false)
+	in.WriteString("y\n") // confirm
+	f := &cmdutil.Factory{IOStreams: io, Flags: &cmdutil.GlobalFlags{}, ConfigPath: t.TempDir() + "/c.toml", CredStore: store}
+	cmd := root.NewCmdRoot(f)
+	cmd.SetArgs([]string{"webhooks", "delete", "wh-1"})
+	cmd.SetOut(io.Out)
+	cmd.SetErr(io.ErrOut)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("delete (confirmed): %v", err)
+	}
+	if !deleted {
+		t.Error("confirmed delete should call the API")
+	}
+}
+
 func TestDoctorNoCredential(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"email":"me"}`))

@@ -8,6 +8,23 @@ import (
 	"testing"
 )
 
+func TestUnwrapAnswer(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{`{"answer":"hello"}`, "hello"},                     // envelope unwrapped
+		{`  {"answer":"trimmed"}  `, "trimmed"},             // leading/trailing space
+		{"just plain text", "just plain text"},             // not JSON → unchanged
+		{`{"other":"x"}`, ""},                               // JSON object, no answer field
+		{`{not valid json`, `{not valid json`},             // malformed → unchanged
+		{"", ""},                                            // empty
+		{`["a","b"]`, `["a","b"]`},                          // JSON but not an object prefix handled
+	}
+	for _, c := range cases {
+		if got := unwrapAnswer(c.in); got != c.want {
+			t.Errorf("unwrapAnswer(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
 func TestAskOnDealAndAccount(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body := readBody(r)
