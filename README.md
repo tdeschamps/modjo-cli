@@ -46,18 +46,8 @@ human-readable in a TTY, and first-class auth.
 ## Install
 
 ```sh
-# Homebrew (macOS/Linux)
-brew install modjo/tap/modjo
-
-# Shell installer
+# Shell installer (downloads the latest signed release binary)
 curl -fsSL https://raw.githubusercontent.com/tdeschamps/modjo-cli/main/install.sh | sh
-
-# Scoop / winget (Windows)
-scoop install modjo
-winget install Modjo.CLI
-
-# Docker
-docker run --rm -e MODJO_API_KEY ghcr.io/modjo/cli calls list
 
 # From source (Go 1.24+)
 go install github.com/tdeschamps/modjo-cli/cmd/modjo@latest
@@ -65,6 +55,10 @@ go install github.com/tdeschamps/modjo-cli/cmd/modjo@latest
 
 Prebuilt, signed binaries for `darwin/{amd64,arm64}`, `linux/{amd64,arm64}`, and
 `windows/amd64` are attached to every [release](https://github.com/tdeschamps/modjo-cli/releases).
+
+> **Coming soon:** Homebrew (`brew install modjo/tap/modjo`), Scoop/winget on
+> Windows, and a Docker image. These ship once the tap/bucket repos and
+> container registry are set up — see the disabled blocks in `.goreleaser.yaml`.
 
 ## Quickstart
 
@@ -182,6 +176,22 @@ authenticating upstream with your stored credential — so MCP clients never tou
 the raw key and need no `mcp-remote` shim. `modjo mcp config --client cursor`
 prints a ready-to-paste snippet; `modjo mcp tools` and `modjo mcp call` are there
 for inspection and one-off scripted tool calls.
+
+## Claude Code / agents
+
+A Claude Code **skill** ships with this repo so agents drive the CLI efficiently
+(correct flags, the numeric-id-vs-name filter gotcha, `--json`/`--jq` idioms).
+It loads automatically for anyone using Claude Code inside this checkout.
+
+To get it in **your own** projects, install it as a plugin:
+
+```sh
+/plugin marketplace add tdeschamps/modjo-cli
+/plugin install modjo-cli@modjo
+```
+
+For read-heavy agent workflows, wiring `modjo mcp serve` as an MCP server (see
+above) gives native typed tools and is even more reliable than the CLI skill.
 
 ## Exit codes
 
