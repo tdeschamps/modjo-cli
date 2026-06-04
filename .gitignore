@@ -1,0 +1,9 @@
+/dist/
+/modjo
+*.out
+*.test
+.idea/
+.vscode/
+
+# Local build output
+/bin/

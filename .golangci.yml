@@ -1,0 +1,63 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - unconvert
+    - bodyclose
+    - revive
+    - gocritic
+    - gosec
+    - nilerr
+    - prealloc
+    - usestdlibvars
+    - whitespace
+  settings:
+    errcheck:
+      exclude-functions:
+        # Writing to our own buffers/streams effectively never fails and would
+        # bury commands in noise; matches the gh CLI's convention.
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (io.Closer).Close
+        - (io.ReadCloser).Close
+    revive:
+      rules:
+        - name: exported
+          disabled: false
+    gosec:
+      excludes:
+        - G104 # error handling is covered by errcheck above
+        # The following are intentional, documented behaviors of a CLI tool:
+        - G304 # reads user-specified files (--input, the user's own config path)
+        - G204 # launches the user's own $EDITOR for `config edit`
+        - G404 # retry jitter uses a fast PRNG; it is not security-sensitive
+        - G402 # TLS verification is only skipped behind the opt-in --insecure flag
+  exclusions:
+    rules:
+      # Test files: relax error-checking and security/perf linters that add
+      # noise without value in tests.
+      - path: _test\.go
+        linters:
+          - errcheck
+          - bodyclose
+          - gosec
+          - prealloc
+          - gocritic
+          - usestdlibvars
+          - revive
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports

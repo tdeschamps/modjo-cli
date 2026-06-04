@@ -1,0 +1,13 @@
+# deals list returns JSON when output is piped (non-TTY) and the env key authenticates.
+exec modjo deals list
+stdout '"crmId": "D1"'
+stdout '"name": "Contoso"'
+! stderr .
+
+# --jq filters the JSON without an external jq binary.
+exec modjo deals list --json --jq '.[].amount'
+stdout '^42000$'
+
+# status alias maps and the command still succeeds.
+exec modjo deals list --status won
+! stderr .

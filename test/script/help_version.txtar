@@ -1,0 +1,13 @@
+# version prints a recognizable line.
+exec modjo version
+stdout '^modjo '
+
+# --help lists the core command groups.
+exec modjo --help
+stdout 'Core commands:'
+stdout 'calls'
+stdout 'ask'
+
+# bad output format is a usage error (exit code 2).
+! exec modjo deals list -o bogus
+stderr 'unknown output format'

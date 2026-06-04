@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  # Pin to 1.25.x (not 1.26+): golangci-lint v2.5.0 is built with go1.25 and
+  # panics type-checking code under a newer toolchain ("requires newer Go
+  # version go1.26"). The minor floor is 1.25.11, which ships the patched
+  # net/textproto (GO-2026-5039) and crypto/x509 (GO-2026-5037) that
+  # govulncheck flags in earlier 1.25.x stdlib. Satisfies the module's go 1.24
+  # requirement.
+  GO_VERSION: "1.25.11"
+
+jobs:
+  test:
+    name: lint & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: gofumpt
+        run: |
+          go install mvdan.cc/gofumpt@v0.7.0
+          out=$(gofumpt -l ./internal ./cmd)
+          if [ -n "$out" ]; then echo "gofumpt needed on:"; echo "$out"; exit 1; fi
+
+      - name: vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        # golangci-lint v2.x requires golangci-lint-action v7+ (v6 only runs v1).
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.5.0
+
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: test (race)
+        run: go test -race ./...
+
+      - name: coverage gate
+        run: make cover
+
+      - name: upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: cover.out
+        continue-on-error: true
+
+  cross-compile:
+    name: cross-compile smoke
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [darwin, linux, windows]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: go build ./cmd/modjo

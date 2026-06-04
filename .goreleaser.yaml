@@ -1,0 +1,70 @@
+version: 2
+
+project_name: modjo
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: modjo
+    main: ./cmd/modjo
+    binary: modjo
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X github.com/tdeschamps/modjo-cli/internal/cmd/version.Version={{.Version}}
+      - -X github.com/tdeschamps/modjo-cli/internal/cmd/version.Commit={{.ShortCommit}}
+      - -X github.com/tdeschamps/modjo-cli/internal/cmd/version.Date={{.Date}}
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: "checksums.txt"
+
+sboms:
+  - artifacts: archive
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+brews:
+  - repository:
+      owner: modjo
+      name: homebrew-tap
+    homepage: "https://github.com/tdeschamps/modjo-cli"
+    description: "Script the Modjo API and drive it with natural language"
+    install: |
+      bin.install "modjo"
+    test: |
+      system "#{bin}/modjo", "version"
+
+scoops:
+  - repository:
+      owner: modjo
+      name: scoop-bucket
+    homepage: "https://github.com/tdeschamps/modjo-cli"
+    description: "Script the Modjo API and drive it with natural language"
+
+dockers:
+  - image_templates:
+      - "ghcr.io/modjo/cli:{{ .Version }}"
+      - "ghcr.io/modjo/cli:latest"
+    dockerfile: Dockerfile
