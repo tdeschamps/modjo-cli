@@ -46,6 +46,9 @@ human-readable in a TTY, and first-class auth.
 ## Install
 
 ```sh
+# Homebrew (macOS/Linux)
+brew install tdeschamps/tap/modjo
+
 # Shell installer (downloads the latest signed release binary)
 curl -fsSL https://raw.githubusercontent.com/tdeschamps/modjo-cli/main/install.sh | sh
 
@@ -56,9 +59,9 @@ go install github.com/tdeschamps/modjo-cli/cmd/modjo@latest
 Prebuilt, signed binaries for `darwin/{amd64,arm64}`, `linux/{amd64,arm64}`, and
 `windows/amd64` are attached to every [release](https://github.com/tdeschamps/modjo-cli/releases).
 
-> **Coming soon:** Homebrew (`brew install modjo/tap/modjo`), Scoop/winget on
-> Windows, and a Docker image. These ship once the tap/bucket repos and
-> container registry are set up — see the disabled blocks in `.goreleaser.yaml`.
+> **Coming soon:** Scoop/winget on Windows and a Docker image. These ship once
+> the bucket repo and container registry are set up — see the disabled blocks
+> in `.goreleaser.yaml`.
 
 ## Quickstart
 

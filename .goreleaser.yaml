@@ -45,27 +45,26 @@ changelog:
       - "^test:"
       - "^chore:"
 
-# Homebrew, Scoop, and Docker publishing are disabled for the first releases:
-# they push to repos/namespaces that don't exist yet (modjo/homebrew-tap,
-# modjo/scoop-bucket, ghcr.io/modjo/cli) and would fail the release. The first
-# releases ship via GitHub Releases (signed archives + checksums + SBOM),
-# `go install`, and install.sh. To enable a channel below:
-#   - Homebrew: create the tap repo, set `owner` to its real owner, and add a
-#     HOMEBREW_TAP_GITHUB_TOKEN (PAT with repo scope) secret + token: field.
-#   - Scoop: same, with a scoop bucket repo.
+# Homebrew publishes a cask to a separate tap repo, which needs a PAT (the
+# built-in GITHUB_TOKEN can't write cross-repo). Requires:
+#   - the tap repo tdeschamps/homebrew-tap to exist, and
+#   - a HOMEBREW_TAP_GITHUB_TOKEN secret (fine-grained PAT, Contents: read/write
+#     on that tap), passed to goreleaser in release.yml.
+# Users then install with: brew install tdeschamps/tap/modjo
+# (homebrew_casks is the current key; the old `brews:` is deprecated.)
+homebrew_casks:
+  - repository:
+      owner: tdeschamps
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: "https://github.com/tdeschamps/modjo-cli"
+    description: "Script the Modjo API and drive it with natural language"
+
+# Scoop (Windows) and Docker remain disabled until their bucket repo / GHCR
+# namespace are set up. To enable:
+#   - Scoop: create a scoop bucket repo, set owner/name + a token.
 #   - Docker: point image_templates at ghcr.io/<repo-owner>/... so the built-in
-#     GITHUB_TOKEN can push, and log in to GHCR in release.yml.
-#
-# brews:
-#   - repository:
-#       owner: modjo
-#       name: homebrew-tap
-#     homepage: "https://github.com/tdeschamps/modjo-cli"
-#     description: "Script the Modjo API and drive it with natural language"
-#     install: |
-#       bin.install "modjo"
-#     test: |
-#       system "#{bin}/modjo", "version"
+#     GITHUB_TOKEN can push, and add a GHCR login step in release.yml.
 #
 # scoops:
 #   - repository:
