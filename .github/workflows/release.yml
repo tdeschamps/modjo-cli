@@ -18,6 +18,9 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: stable
+      # goreleaser's sboms block shells out to `syft`; install it on the runner.
+      - name: Install syft (for SBOM generation)
+        uses: anchore/sbom-action/download-syft@v0
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
