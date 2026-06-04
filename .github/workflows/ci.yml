@@ -9,11 +9,13 @@ permissions:
   contents: read
 
 env:
-  # Pin to Go 1.25.x: golangci-lint v2.5.0 is built with go1.25 and panics
-  # type-checking code under a newer toolchain ("requires newer Go version
-  # go1.26"). 1.25 satisfies the module's go 1.24 requirement and matches the
-  # versions used for local validation.
-  GO_VERSION: "1.25.x"
+  # Pin to 1.25.x (not 1.26+): golangci-lint v2.5.0 is built with go1.25 and
+  # panics type-checking code under a newer toolchain ("requires newer Go
+  # version go1.26"). The minor floor is 1.25.11, which ships the patched
+  # net/textproto (GO-2026-5039) and crypto/x509 (GO-2026-5037) that
+  # govulncheck flags in earlier 1.25.x stdlib. Satisfies the module's go 1.24
+  # requirement.
+  GO_VERSION: "1.25.11"
 
 jobs:
   test:
