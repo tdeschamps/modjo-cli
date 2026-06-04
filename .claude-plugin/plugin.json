@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "modjo-cli",
+  "displayName": "Modjo CLI",
+  "version": "0.1.0",
+  "description": "Helps agents drive the modjo CLI efficiently: correct flags, the numeric-id-vs-name filter gotcha, and --json/--jq idioms for querying calls, deals, accounts, contacts, users, and teams.",
+  "author": {
+    "name": "Thomas Deschamps"
+  },
+  "homepage": "https://github.com/tdeschamps/modjo-cli",
+  "repository": "https://github.com/tdeschamps/modjo-cli",
+  "license": "MIT",
+  "keywords": ["modjo", "crm", "sales", "cli", "calls", "deals"],
+  "skills": "./.claude/skills/modjo-cli/"
+}

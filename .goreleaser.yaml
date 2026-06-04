@@ -45,26 +45,37 @@ changelog:
       - "^test:"
       - "^chore:"
 
-brews:
-  - repository:
-      owner: modjo
-      name: homebrew-tap
-    homepage: "https://github.com/tdeschamps/modjo-cli"
-    description: "Script the Modjo API and drive it with natural language"
-    install: |
-      bin.install "modjo"
-    test: |
-      system "#{bin}/modjo", "version"
-
-scoops:
-  - repository:
-      owner: modjo
-      name: scoop-bucket
-    homepage: "https://github.com/tdeschamps/modjo-cli"
-    description: "Script the Modjo API and drive it with natural language"
-
-dockers:
-  - image_templates:
-      - "ghcr.io/modjo/cli:{{ .Version }}"
-      - "ghcr.io/modjo/cli:latest"
-    dockerfile: Dockerfile
+# Homebrew, Scoop, and Docker publishing are disabled for the first releases:
+# they push to repos/namespaces that don't exist yet (modjo/homebrew-tap,
+# modjo/scoop-bucket, ghcr.io/modjo/cli) and would fail the release. The first
+# releases ship via GitHub Releases (signed archives + checksums + SBOM),
+# `go install`, and install.sh. To enable a channel below:
+#   - Homebrew: create the tap repo, set `owner` to its real owner, and add a
+#     HOMEBREW_TAP_GITHUB_TOKEN (PAT with repo scope) secret + token: field.
+#   - Scoop: same, with a scoop bucket repo.
+#   - Docker: point image_templates at ghcr.io/<repo-owner>/... so the built-in
+#     GITHUB_TOKEN can push, and log in to GHCR in release.yml.
+#
+# brews:
+#   - repository:
+#       owner: modjo
+#       name: homebrew-tap
+#     homepage: "https://github.com/tdeschamps/modjo-cli"
+#     description: "Script the Modjo API and drive it with natural language"
+#     install: |
+#       bin.install "modjo"
+#     test: |
+#       system "#{bin}/modjo", "version"
+#
+# scoops:
+#   - repository:
+#       owner: modjo
+#       name: scoop-bucket
+#     homepage: "https://github.com/tdeschamps/modjo-cli"
+#     description: "Script the Modjo API and drive it with natural language"
+#
+# dockers:
+#   - image_templates:
+#       - "ghcr.io/modjo/cli:{{ .Version }}"
+#       - "ghcr.io/modjo/cli:latest"
+#     dockerfile: Dockerfile
