@@ -25,3 +25,6 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # PAT for pushing the Homebrew cask to the separate tap repo
+          # (the built-in GITHUB_TOKEN can't write cross-repo). See .goreleaser.yaml.
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
