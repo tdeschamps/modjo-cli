@@ -15,8 +15,8 @@ jobs:
     # Gated on a sandbox key being available; never runs for forks.
     if: ${{ github.repository == 'tdeschamps/modjo-cli' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: stable
       - name: contract tests

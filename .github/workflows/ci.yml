@@ -22,8 +22,8 @@ jobs:
     name: lint & test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -38,8 +38,9 @@ jobs:
         run: go vet ./...
 
       - name: golangci-lint
-        # golangci-lint v2.x requires golangci-lint-action v7+ (v6 only runs v1).
-        uses: golangci/golangci-lint-action@v8
+        # Action v9 runs on Node 24; the linter is pinned via `version` below so
+        # the toolchain stays compatible with this job's Go version.
+        uses: golangci/golangci-lint-action@v9
         with:
           version: v2.5.0
 
@@ -55,7 +56,7 @@ jobs:
         run: make cover
 
       - name: upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           files: cover.out
         continue-on-error: true
@@ -71,8 +72,8 @@ jobs:
           - goos: windows
             goarch: arm64
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: build
