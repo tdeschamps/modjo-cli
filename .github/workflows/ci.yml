@@ -56,7 +56,7 @@ jobs:
         run: make cover
 
       - name: upload coverage
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: cover.out
         continue-on-error: true
