@@ -18,6 +18,7 @@ import (
 	"github.com/tdeschamps/modjo-cli/internal/cmd/completion"
 	configcmd "github.com/tdeschamps/modjo-cli/internal/cmd/config"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/contacts"
+	"github.com/tdeschamps/modjo-cli/internal/cmd/crmtemplates"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/deals"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/docs"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/doctor"
@@ -119,6 +120,7 @@ See 'modjo <command> --help' for details on any command.`,
 		tags.NewCmdTags(f),
 		topics.NewCmdTopics(f),
 		webhooks.NewCmdWebhooks(f),
+		crmtemplates.NewCmdCrmTemplates(f),
 		ask.NewCmdAsk(f),
 		mcpcmd.NewCmdMCP(f),
 		apicmd.NewCmdAPI(f),
