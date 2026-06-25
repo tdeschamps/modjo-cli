@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "servers": [{ "url": "https://api.modjo.ai//v2" }],
   "info": { "title": "Modjo Public API", "version": "2.0.0" },
-  "_note": "Canonical Modjo Public API v2 spec. Endpoints: /accounts, /accounts/{id}, /calls, /calls/{id}, /calls/{id}/transcript, /calls/{id}/summaries, /calls/{id}/next-steps, /calls/{id}/notes, /calls/{id}/tags, /calls/{id}/crm-filling-answers, /contacts, /contacts/{id}, /deals, /deals/{id}/summary, /teams, /teams/{id}, /teams/{id}/members, /tags, /topics, /users, /users/{id}, /webhooks, /webhooks/{uuid}, /crm-filling-templates, /crm-filling-templates/{uuid}, /crm-filling-templates/{uuid}/fields. NO /emails, NO /agents.",
+  "_note": "Canonical Modjo Public API v2 digest (human/AI reference; full machine spec lives alongside in modjo-openapi.full.json). Endpoints: /accounts, /accounts/{id}, /calls, /calls/{id}, /calls/{id}/transcript, /calls/{id}/summaries, /calls/{id}/next-steps, /calls/{id}/notes, /calls/{id}/tags, /calls/{id}/tags/{tagId}, /calls/{id}/crm-filling-answers, /contacts, /contacts/{id}, /deals, /deals/{id}/summary, /teams, /teams/{id}, /teams/{id}/members, /tags, /topics, /users, /users/{id}, /users/{id}/teams, /users/{id}/teams/{teamId}, /webhooks, /webhooks/{uuid}, /crm-filling-templates, /crm-filling-templates/{uuid}, /crm-filling-templates/{uuid}/fields. NO /emails, NO /agents.",
   "pagination": { "params": "page (1-based, default 1), size (default 25, max 100)", "envelope": "{ data: [...], pagination: { page, size, total } }" },
   "expand": "calls support ?expand=contacts,deal,account,users — when expanded the *Id/*Ids field is replaced by the inline object",
   "schemas": {
@@ -19,7 +19,13 @@
     "Webhook": ["uuid (uuid)", "name (string)", "url (string)", "events (string[]: call_summarized|call_recording_deleted|call_transcript_deleted)", "createdOn", "modifiedOn"],
     "CallSummary": ["uuid", "templateUuid", "templateTitle", "templateLength (short|detailed|adjusted)", "answer (string|null)", "language (string|null)", "createdOn", "modifiedOn"],
     "NextStepItem": ["title (string)", "description (string)"],
-    "Note": ["id", "title (string|null)", "date (string)", "rawContent (any|null)", "status (DRAFT|PUBLISHED)", "type (USER|AI)", "publishedDate", "createdOn", "modifiedOn", "createdBy", "modifiedBy"]
+    "Note": ["id", "title (string|null)", "date (string)", "rawContent (any|null)", "status (DRAFT|PUBLISHED)", "type (USER|AI)", "publishedDate", "createdOn", "modifiedOn", "createdBy", "modifiedBy"],
+    "CallTag": ["callId (number)", "tagId (number)"],
+    "UserTeam": ["userId (number)", "teamId (number)"],
+    "CrmFillingAnswer": ["uuid", "callId (number)", "crmFillingFieldUuid (uuid)", "value (any|null)", "crmId (string)", "createdOn", "modifiedOn"],
+    "CrmFillingTemplate": ["uuid", "title (string)", "status (pending|published)", "language (string)", "callDurationMin (int)", "callDurationMax (int)", "providers (string[])", "teamIds (int[])", "tagIds (int[])", "createdOn", "modifiedOn"],
+    "CrmFillingField": ["uuid", "order (int)", "prompt (string)", "crm (hubspot|pipedrive|salesforce|zoho|sellsy|microsoft_dynamics)", "entityType (account|contact|lead|deal|lookup)", "fieldId (string)", "fieldLabel (string)", "fieldKey (string)", "fieldType (string|textarea|number|date|boolean|enum)", "isActive (bool)", "isAutoPush (bool)", "createdOn", "modifiedOn"],
+    "DealSummaryContent": ["data ([{type (string), value (string)}])", "language (string)"]
   },
   "filters": {
     "GET /accounts": "page, size, name",
@@ -30,7 +36,11 @@
     "GET /tags": "page, size",
     "GET /topics": "page, size",
     "GET /users": "page, size, email (exact)",
-    "GET /webhooks": "page, size"
+    "GET /webhooks": "page, size",
+    "GET /teams/{id}/members": "page, size -> { data: TeamMember[], pagination }",
+    "GET /calls/{id}/crm-filling-answers": "page, size -> { data: CrmFillingAnswer[], pagination }",
+    "GET /crm-filling-templates": "page, size, status (pending|published) -> { data: CrmFillingTemplate[], pagination }",
+    "GET /crm-filling-templates/{uuid}/fields": "page, size -> { data: CrmFillingField[], pagination }"
   },
   "writes": {
     "POST /calls": "UploadCallRequest (downloadMediaUrl, date, participants[], optional name/direction/duration/tags/account/deal) -> 202 {callId(uuid), status}",
@@ -44,7 +54,9 @@
     "PATCH /webhooks/{uuid}": "UpdateWebhookRequest -> 200",
     "DELETE /webhooks/{uuid}": "204",
     "POST /calls/{id}/tags": "AddTagToCallRequest (tagId) -> 201 CallTag",
-    "DELETE /calls/{id}/tags/{tagId}": "204"
+    "DELETE /calls/{id}/tags/{tagId}": "204",
+    "POST /users/{id}/teams": "AddTeamToUserRequest (teamId) -> 201 UserTeam (idempotent: re-add returns existing membership)",
+    "DELETE /users/{id}/teams/{teamId}": "204 (404 if user/team/membership missing)"
   },
   "errors": "Error body: {code, message}. 400 validation_error, 401 missing_api_key|invalid_api_key, 404 not_found, 409 conflict, 429 rate_limited, 500 internal_error.",
   "single_object_endpoints": {
@@ -57,6 +69,8 @@
     "GET /accounts/{id}": "Account",
     "GET /contacts/{id}": "Contact",
     "GET /users/{id}": "User",
-    "GET /teams/{id}": "Team"
+    "GET /teams/{id}": "Team",
+    "GET /calls/{id}/tags": "{ data: Tag[] } — accepts integer id or uuid",
+    "GET /crm-filling-templates/{uuid}": "CrmFillingTemplate"
   }
 }
