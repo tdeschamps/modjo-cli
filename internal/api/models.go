@@ -263,3 +263,92 @@ type Note struct {
 	CreatedBy     json.RawMessage `json:"createdBy,omitempty"`
 	ModifiedBy    json.RawMessage `json:"modifiedBy,omitempty"`
 }
+
+// CallTag is the association between a call and a tag (OpenAPI CallTag),
+// returned by POST /calls/{id}/tags.
+type CallTag struct {
+	CallID json.Number `json:"callId"`
+	TagID  json.Number `json:"tagId"`
+}
+
+// UserTeam is the association between a user and a team (OpenAPI UserTeam),
+// returned by POST /users/{id}/teams.
+type UserTeam struct {
+	UserID json.Number `json:"userId"`
+	TeamID json.Number `json:"teamId"`
+}
+
+// TeamMember is a user belonging to a team (OpenAPI TeamMember; same shape as
+// User).
+type TeamMember struct {
+	ID            json.Number `json:"id"`
+	Email         string      `json:"email,omitempty"`
+	FirstName     string      `json:"firstName,omitempty"`
+	LastName      string      `json:"lastName,omitempty"`
+	PhoneNumber   string      `json:"phoneNumber,omitempty"`
+	JobTitle      string      `json:"jobTitle,omitempty"`
+	JobDepartment string      `json:"jobDepartment,omitempty"`
+	Role          string      `json:"role,omitempty"`
+	Timezone      string      `json:"timezone,omitempty"`
+	CreatedOn     string      `json:"createdOn,omitempty"`
+	ModifiedOn    string      `json:"modifiedOn,omitempty"`
+}
+
+// DealSummaryBlock is one section of a deal summary (OpenAPI inner shape of
+// DealSummaryContent.data).
+type DealSummaryBlock struct {
+	Type  string `json:"type"`
+	Value string `json:"value"`
+}
+
+// DealSummaryContent is the AI-generated summary for a deal
+// (OpenAPI DealSummaryContent), returned by GET /deals/{id}/summary.
+type DealSummaryContent struct {
+	Data     []DealSummaryBlock `json:"data"`
+	Language string             `json:"language,omitempty"`
+}
+
+// CrmFillingAnswer is a CRM field value pushed to the CRM for a call
+// (OpenAPI CrmFillingAnswer). value is free-form, so it stays raw.
+type CrmFillingAnswer struct {
+	UUID                string          `json:"uuid"`
+	CallID              json.Number     `json:"callId,omitempty"`
+	CrmFillingFieldUUID string          `json:"crmFillingFieldUuid,omitempty"`
+	Value               json.RawMessage `json:"value,omitempty"`
+	CRMID               string          `json:"crmId,omitempty"`
+	CreatedOn           string          `json:"createdOn,omitempty"`
+	ModifiedOn          string          `json:"modifiedOn,omitempty"`
+}
+
+// CrmFillingTemplate is a CRM filling template (OpenAPI CrmFillingTemplate).
+type CrmFillingTemplate struct {
+	UUID            string        `json:"uuid"`
+	Title           string        `json:"title,omitempty"`
+	Status          string        `json:"status,omitempty"` // pending | published
+	Language        string        `json:"language,omitempty"`
+	CallDurationMin json.Number   `json:"callDurationMin,omitempty"`
+	CallDurationMax json.Number   `json:"callDurationMax,omitempty"`
+	Providers       []string      `json:"providers,omitempty"`
+	TeamIDs         []json.Number `json:"teamIds,omitempty"`
+	TagIDs          []json.Number `json:"tagIds,omitempty"`
+	CreatedOn       string        `json:"createdOn,omitempty"`
+	ModifiedOn      string        `json:"modifiedOn,omitempty"`
+}
+
+// CrmFillingField is one field of a CRM filling template (OpenAPI
+// CrmFillingField).
+type CrmFillingField struct {
+	UUID       string      `json:"uuid"`
+	Order      json.Number `json:"order,omitempty"`
+	Prompt     string      `json:"prompt,omitempty"`
+	CRM        string      `json:"crm,omitempty"`        // hubspot|pipedrive|salesforce|zoho|sellsy|microsoft_dynamics
+	EntityType string      `json:"entityType,omitempty"` // account|contact|lead|deal|lookup
+	FieldID    string      `json:"fieldId,omitempty"`
+	FieldLabel string      `json:"fieldLabel,omitempty"`
+	FieldKey   string      `json:"fieldKey,omitempty"`
+	FieldType  string      `json:"fieldType,omitempty"` // string|textarea|number|date|boolean|enum
+	IsActive   bool        `json:"isActive,omitempty"`
+	IsAutoPush bool        `json:"isAutoPush,omitempty"`
+	CreatedOn  string      `json:"createdOn,omitempty"`
+	ModifiedOn string      `json:"modifiedOn,omitempty"`
+}
