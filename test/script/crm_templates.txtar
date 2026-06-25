@@ -1,0 +1,12 @@
+# crm-templates list shows templates (GET /crm-filling-templates), filterable by status.
+exec modjo crm-templates list --status published
+stdout '"uuid": "tpl-1"'
+stdout '"title": "Discovery"'
+
+# crm-templates get fetches one template (GET /crm-filling-templates/{uuid}).
+exec modjo crm-templates get tpl-1
+stdout '"title": "Discovery"'
+
+# crm-templates fields lists a template's fields (GET /crm-filling-templates/{uuid}/fields).
+exec modjo crm-templates fields tpl-1
+stdout '"uuid": "fld-1"'

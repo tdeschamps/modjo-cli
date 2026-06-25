@@ -1,0 +1,27 @@
+# calls notes lists a call's notes (GET /calls/{id}/notes).
+exec modjo calls notes 42
+stdout '"title": "Recap"'
+
+# calls next-steps lists AI next steps (GET /calls/{id}/next-steps).
+exec modjo calls next-steps 42
+stdout '"title": "Send quote"'
+
+# calls crm-answers lists CRM filling answers (GET /calls/{id}/crm-filling-answers).
+exec modjo calls crm-answers 42
+stdout '"uuid": "ans-1"'
+
+# calls tags list shows the call's tags (GET /calls/{id}/tags).
+exec modjo calls tags list 42
+stdout '"name": "Pricing"'
+
+# calls tags add attaches a tag (POST /calls/{id}/tags -> 201).
+exec modjo calls tags add 42 --tag 3
+stdout '"tagId": 3'
+
+# add requires --tag.
+! exec modjo calls tags add 42
+stderr .
+
+# calls tags remove with --yes detaches a tag (DELETE /calls/{id}/tags/{tagId} -> 204).
+exec modjo calls tags remove 42 3 --yes
+! stdout '"error"'
