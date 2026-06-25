@@ -2,8 +2,11 @@ package api
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -214,5 +217,73 @@ func TestPaginateDecodeError(t *testing.T) {
 	err := drain(c.Deals(context.Background(), DealFilter{}))
 	if err == nil {
 		t.Error("expected decode error for malformed item")
+	}
+}
+
+// fullPageDealJSON renders one full page (pageSize rows) with total:0 — the
+// misbehaving-server shape that defeats every content-based stop condition.
+func fullPageDealJSON() string {
+	rows := make([]string, pageSize)
+	for i := range rows {
+		rows[i] = `{"crmId":"D","name":"x"}`
+	}
+	return `{"data":[` + strings.Join(rows, ",") + `],"pagination":{"page":1,"size":50,"total":0}}`
+}
+
+func TestPaginateStopsAtMaxPagesOnRunawayServer(t *testing.T) {
+	// A server that ignores `page` and always returns a full page with total:0
+	// satisfies no content-based stop (never empty, total unknown, never short).
+	// Under --all (limit 0) the iterator must terminate via the page ceiling and
+	// surface an error, not loop forever. The handler counts requests so a buggy
+	// (unbounded) implementation trips the guard instead of hanging the test.
+	var requests int32
+	body := fullPageDealJSON()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&requests, 1) > maxPages+5 {
+			t.Errorf("paginate did not stop: %d requests (cap is %d)", requests, maxPages)
+			http.Error(w, "runaway", http.StatusInternalServerError)
+			return
+		}
+		_, _ = io.WriteString(w, body)
+	}))
+	defer srv.Close()
+	c := New(Options{BaseURL: srv.URL, Token: func() (string, error) { return "k", nil }})
+
+	var lastErr error
+	rows := 0
+	for _, err := range c.Deals(context.Background(), DealFilter{}) { // limit 0 = --all
+		if err != nil {
+			lastErr = err
+			break
+		}
+		rows++
+	}
+	if lastErr == nil {
+		t.Fatal("expected a page-ceiling error on a runaway server, got nil")
+	}
+	if got := int(atomic.LoadInt32(&requests)); got > maxPages {
+		t.Errorf("fetched %d pages, want <= cap %d", got, maxPages)
+	}
+}
+
+func TestPaginateLimitStopsBeforeMaxPages(t *testing.T) {
+	// The ceiling must not interfere with a normal limited read: even against the
+	// runaway server, a small --limit stops cleanly with no error.
+	body := fullPageDealJSON()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, body)
+	}))
+	defer srv.Close()
+	c := New(Options{BaseURL: srv.URL, Token: func() (string, error) { return "k", nil }})
+
+	rows := 0
+	for _, err := range c.Deals(context.Background(), DealFilter{Limit: 10}) {
+		if err != nil {
+			t.Fatalf("limited read should not error: %v", err)
+		}
+		rows++
+	}
+	if rows != 10 {
+		t.Errorf("want 10 rows, got %d", rows)
 	}
 }

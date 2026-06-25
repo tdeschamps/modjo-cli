@@ -135,16 +135,31 @@ func (c *Client) Raw(ctx context.Context, method, path string, query url.Values,
 // queryFunc builds the query for a given 1-indexed page.
 type queryFunc func(page int) url.Values
 
+// maxPages caps how many pages paginate will walk in a single sweep. It's a
+// safety ceiling, not an expected stop: the normal stops are empty page, total
+// coverage, or a short page. A misbehaving server that ignores `page` and keeps
+// returning full pages with total:0 satisfies none of those, so without this
+// cap an unlimited (`--all`) read would loop forever and buffer rows without
+// bound. At pageSize=50 this is 500k rows — far beyond any real workspace — so
+// it only ever trips on a server bug, and when it does the caller gets an
+// explicit error rather than silent truncation.
+const maxPages = 10_000
+
 // paginate returns an iterator over a list endpoint, walking pages (page=N,
 // 1-indexed) and honoring limit. It decodes each raw value into a fresh T and
 // stops once the reported total is covered, a short/empty page arrives, or the
-// limit is reached.
+// limit is reached. As a backstop against a server that never signals the end,
+// it stops after maxPages pages and yields an error.
 func paginate[T any](ctx context.Context, c *Client, path string, q queryFunc, limit int) iter.Seq2[T, error] {
 	return func(yield func(T, error) bool) {
 		var zero T
 		emitted := 0 // rows yielded toward the caller's limit
 		fetched := 0 // rows received from the server (for total-coverage stop)
 		for page := 1; ; page++ {
+			if page > maxPages {
+				yield(zero, fmt.Errorf("paginate %s: stopped after %d pages without an end signal (server may not be honoring pagination)", path, maxPages))
+				return
+			}
 			var resp listResponse
 			if err := c.doJSON(ctx, http.MethodGet, path, q(page), nil, &resp); err != nil {
 				yield(zero, err)
