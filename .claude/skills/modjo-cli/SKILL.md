@@ -1,6 +1,6 @@
 ---
 name: modjo-cli
-description: Use when querying Modjo data (calls, deals, accounts, contacts, users, teams) or asking AI questions about a call/deal/account via the `modjo` CLI. Covers the correct flags, the numeric-ID-vs-name gotcha, and efficient --json/--jq idioms so commands work first try.
+description: Use when querying or managing Modjo data (calls, deals, accounts, contacts, users, teams, webhooks, CRM templates) or asking AI questions about a call/deal/account via the `modjo` CLI. Covers the correct flags, the numeric-ID-vs-name gotcha, and efficient --json/--jq idioms so commands work first try.
 ---
 
 # Driving the `modjo` CLI efficiently
@@ -41,11 +41,20 @@ resolved profile, base URL, MCP URL, and auth status.
 | `calls get <id>` | `--expand …` |
 | `calls transcript <id>` | `--speakers`, `--timestamps` |
 | `calls summary <id>` | (pre-generated AI summaries) |
+| `calls notes <id>` / `calls next-steps <id>` / `calls crm-answers <id>` | per-call AI notes, next steps, and CRM answers |
+| `calls tags list\|add\|remove <id>` | `add` takes `--tag <tagId>`; `remove <id> <tagId>` |
+| `calls upload` | `--media-url <url> --date <date> --participant <email:type[:name]>` (repeatable) |
 | `deals list` | `--name`, `--account` (numeric), `--status open\|won\|lost\|closed` |
+| `deals summary <id>` | AI-generated deal summary |
 | `accounts list` | `--name` |
 | `contacts list` | `--name` |
 | `users list` | `--email` (exact match only) |
 | `users create` | `--first-name --last-name --email` required; optional `--role --job-title --job-department --phone --timezone` |
+| `users update <id>` | partial update — only the flags you set are sent (pass `--phone ""` to clear) |
+| `users add-team <id> --team <teamId>` / `users remove-team <id> <teamId>` | team membership |
+| `teams create --name <name>` / `teams update <id> --name <name>` / `teams delete <id>` / `teams members <id>` | full team management |
+| `webhooks update <uuid>` | partial update — only the flags you set are sent |
+| `crm-templates list` / `crm-templates get <uuid>…` / `crm-templates fields <uuid>` | CRM filling templates and their fields |
 | `tags list` / `topics list` / `teams list` / `webhooks list` | paging only |
 | `ask call\|deal\|account <id> "<q>"` | `--language`; prints prose, add `--json` for structured |
 | `api <METHOD> <path>` | `--param k=v` (repeatable), `--field k=v` (body), `--paginate`, `--input -` |
