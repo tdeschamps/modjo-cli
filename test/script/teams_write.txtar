@@ -1,0 +1,23 @@
+# teams create prints the new team (POST /teams -> 201).
+exec modjo teams create --name Sales
+stdout '"name": "Sales"'
+
+# --dry-run does not hit the API and reports the intended action on stderr.
+exec modjo teams create --name Sales --dry-run
+stderr 'dry-run'
+
+# create without --name is a usage error.
+! exec modjo teams create
+stderr '--name'
+
+# teams update renames (PATCH /teams/{id}).
+exec modjo teams update 5 --name Renamed
+stdout '"name": "Renamed"'
+
+# teams delete with --yes succeeds (DELETE /teams/{id} -> 204).
+exec modjo teams delete 5 --yes
+stderr 'Deleted team 5'
+
+# teams members lists a team's users (GET /teams/{id}/members).
+exec modjo teams members 5
+stdout '"email": "rep@acme.com"'

@@ -1,0 +1,19 @@
+# users update applies a partial change (PATCH /users/{id}).
+exec modjo users update 7 --job-title VP
+stdout '"id": 7'
+
+# update with no field flags is a usage error.
+! exec modjo users update 7
+stderr .
+
+# add-team adds a user to a team (POST /users/{id}/teams -> 201).
+exec modjo users add-team 7 --team 5
+stdout '"teamId": 5'
+
+# add-team requires --team.
+! exec modjo users add-team 7
+stderr .
+
+# remove-team with --yes succeeds (DELETE /users/{id}/teams/{teamId} -> 204).
+exec modjo users remove-team 7 5 --yes
+! stdout '"error"'

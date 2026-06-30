@@ -141,6 +141,33 @@ func (f WebhookFilter) query(page int) url.Values {
 	return q
 }
 
+// PageFilter is the paging-only filter shared by sub-resource list endpoints
+// that take no other query params (team members, CRM filling answers, template
+// fields).
+type PageFilter struct {
+	Limit int
+}
+
+func (f PageFilter) query(page int) url.Values {
+	q := url.Values{}
+	setPaging(q, f.Limit, page)
+	return q
+}
+
+// CrmFillingTemplateFilter filters the CRM filling templates list
+// (GET /crm-filling-templates). status is an optional enum (pending|published).
+type CrmFillingTemplateFilter struct {
+	Status string
+	Limit  int
+}
+
+func (f CrmFillingTemplateFilter) query(page int) url.Values {
+	q := url.Values{}
+	setNonEmpty(q, "status", f.Status)
+	setPaging(q, f.Limit, page)
+	return q
+}
+
 func setNonEmpty(q url.Values, key, val string) {
 	if val != "" {
 		q.Set(key, val)

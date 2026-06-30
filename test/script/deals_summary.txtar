@@ -1,0 +1,5 @@
+# deals summary prints the AI summary blocks (GET /deals/{id}/summary).
+# Non-TTY output defaults to JSON, so the summary blocks render as rows.
+exec modjo deals summary 99
+stdout '"overview"'
+stdout 'Strong intent to buy'

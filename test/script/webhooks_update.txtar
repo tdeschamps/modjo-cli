@@ -1,0 +1,11 @@
+# webhooks update applies a partial change (PATCH /webhooks/{uuid}).
+exec modjo webhooks update wh-1 --name Renamed
+stdout '"name": "Renamed"'
+
+# update with no flags is a usage error.
+! exec modjo webhooks update wh-1
+stderr .
+
+# --dry-run does not hit the API.
+exec modjo webhooks update wh-1 --name Renamed --dry-run
+stderr 'dry-run'

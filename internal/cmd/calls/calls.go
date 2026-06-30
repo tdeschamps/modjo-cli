@@ -1,5 +1,6 @@
-// Package calls implements `modjo calls`: list, get, transcript, summary, and
-// export.
+// Package calls implements `modjo calls`: list, get, transcript, summary,
+// export, upload, notes, next-steps, crm-answers, and a tags sub-group
+// (list/add/remove).
 package calls
 
 import (
@@ -28,6 +29,11 @@ func NewCmdCalls(f *cmdutil.Factory) *cobra.Command {
 		newTranscriptCmd(f),
 		newSummaryCmd(f),
 		newExportCmd(f),
+		newUploadCmd(f),
+		newNotesCmd(f),
+		newNextStepsCmd(f),
+		newCrmAnswersCmd(f),
+		newTagsCmd(f),
 	)
 	return cmd
 }
@@ -235,6 +241,160 @@ func newExportCmd(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
+func newNotesCmd(f *cmdutil.Factory) *cobra.Command {
+	return &cobra.Command{
+		Use:   "notes <callId>",
+		Short: "List a call's notes",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := f.APIClient()
+			if err != nil {
+				return err
+			}
+			notes, err := client.GetCallNotes(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			return cmdutil.RenderSlice(f, notes, noteFields())
+		},
+	}
+}
+
+func newNextStepsCmd(f *cmdutil.Factory) *cobra.Command {
+	return &cobra.Command{
+		Use:   "next-steps <callId>",
+		Short: "List a call's AI-extracted next steps",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := f.APIClient()
+			if err != nil {
+				return err
+			}
+			steps, err := client.GetCallNextSteps(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			return cmdutil.RenderSlice(f, steps, nextStepFields())
+		},
+	}
+}
+
+func newCrmAnswersCmd(f *cmdutil.Factory) *cobra.Command {
+	return &cobra.Command{
+		Use:   "crm-answers <callId>",
+		Short: "List CRM filling answers pushed for a call",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := f.APIClient()
+			if err != nil {
+				return err
+			}
+			limit, err := f.EffectiveLimit()
+			if err != nil {
+				return err
+			}
+			seq := client.CrmFillingAnswers(cmd.Context(), args[0], api.PageFilter{Limit: limit})
+			return cmdutil.CollectAndRender(cmd.Context(), f, seq, crmAnswerFields(), "answers")
+		},
+	}
+}
+
+func newTagsCmd(f *cmdutil.Factory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "tags <command>",
+		Short: "List and manage a call's tags",
+	}
+	cmd.AddCommand(
+		newTagsListCmd(f),
+		newTagsAddCmd(f),
+		newTagsRemoveCmd(f),
+	)
+	return cmd
+}
+
+func newTagsListCmd(f *cmdutil.Factory) *cobra.Command {
+	return &cobra.Command{
+		Use:   "list <callId>",
+		Short: "List a call's tags",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := f.APIClient()
+			if err != nil {
+				return err
+			}
+			tags, err := client.GetCallTags(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			return cmdutil.RenderSlice(f, tags, tagFields())
+		},
+	}
+}
+
+func newTagsAddCmd(f *cmdutil.Factory) *cobra.Command {
+	var tag int
+	cmd := &cobra.Command{
+		Use:   "add <callId> --tag <tagId>",
+		Short: "Add a tag to a call",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !cmd.Flags().Changed("tag") {
+				return cmdutil.NewUsageError(fmt.Errorf("--tag is required"))
+			}
+			id := args[0]
+			if f.Flags.DryRun {
+				f.IOStreams.Errf("[dry-run] would add tag %d to call %s\n", tag, id)
+				return nil
+			}
+			client, err := f.APIClient()
+			if err != nil {
+				return err
+			}
+			ct, err := client.AddCallTag(cmd.Context(), id, tag)
+			if err != nil {
+				return err
+			}
+			f.IOStreams.Errf("%s Added tag %s to call %s\n", f.IOStreams.Green("✓"), ct.TagID.String(), ct.CallID.String())
+			return cmdutil.RenderSlice(f, []api.CallTag{ct}, callTagFields())
+		},
+	}
+	cmd.Flags().IntVar(&tag, "tag", 0, "ID of the tag to add (required)")
+	return cmd
+}
+
+func newTagsRemoveCmd(f *cmdutil.Factory) *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove <callId> <tagId>",
+		Short: "Remove a tag from a call",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, tagID := args[0], args[1]
+			if f.Flags.DryRun {
+				f.IOStreams.Errf("[dry-run] would remove tag %s from call %s\n", tagID, id)
+				return nil
+			}
+			if !f.Flags.Yes {
+				ok, err := cmdutil.Confirm(f.IOStreams, fmt.Sprintf("Remove tag %s from call %s?", tagID, id), false)
+				if err != nil {
+					return err
+				}
+				if !ok {
+					return cmdutil.NewSilentError(cmdutil.ExitOK, fmt.Errorf("aborted"))
+				}
+			}
+			client, err := f.APIClient()
+			if err != nil {
+				return err
+			}
+			if err := client.RemoveCallTag(cmd.Context(), id, tagID); err != nil {
+				return err
+			}
+			f.IOStreams.Errf("%s Removed tag %s from call %s\n", f.IOStreams.Green("✓"), tagID, id)
+			return nil
+		},
+	}
+}
+
 func splitCSV(s string) []string {
 	if strings.TrimSpace(s) == "" {
 		return nil
@@ -247,15 +407,6 @@ func splitCSV(s string) []string {
 		}
 	}
 	return out
-}
-
-func truncate(s string, n int) string {
-	s = strings.ReplaceAll(s, "\n", " ")
-	r := []rune(s)
-	if len(r) <= n {
-		return s
-	}
-	return string(r[:n-1]) + "…"
 }
 
 // transcriptFields describes the columns for machine-format transcript output.
@@ -273,8 +424,166 @@ func summaryFields() []output.Field {
 	return []output.Field{
 		{Name: "TEMPLATE", Extract: func(v any) string { return v.(api.CallSummary).TemplateTitle }},
 		{Name: "LENGTH", Extract: func(v any) string { return v.(api.CallSummary).TemplateLength }},
-		{Name: "ANSWER", Extract: func(v any) string { return truncate(v.(api.CallSummary).Answer, 80) }},
+		{Name: "ANSWER", Extract: func(v any) string { return v.(api.CallSummary).Answer }},
 	}
+}
+
+// noteFields describes the columns for call note output.
+func noteFields() []output.Field {
+	return []output.Field{
+		{Name: "ID", Extract: func(v any) string { return v.(api.Note).ID.String() }},
+		{Name: "TITLE", Extract: func(v any) string { return v.(api.Note).Title }},
+		{Name: "STATUS", Extract: func(v any) string { return v.(api.Note).Status }},
+		{Name: "TYPE", Extract: func(v any) string { return v.(api.Note).Type }},
+		{Name: "DATE", Extract: func(v any) string { return v.(api.Note).Date }},
+	}
+}
+
+// nextStepFields describes the columns for call next-step output.
+func nextStepFields() []output.Field {
+	return []output.Field{
+		{Name: "TITLE", Extract: func(v any) string { return v.(api.NextStepItem).Title }},
+		{Name: "DESCRIPTION", Extract: func(v any) string { return v.(api.NextStepItem).Description }},
+	}
+}
+
+// tagFields describes the columns for tag output (reused by `tags list`).
+func tagFields() []output.Field {
+	return []output.Field{
+		{Name: "ID", Extract: func(v any) string { return v.(api.Tag).ID.String() }},
+		{Name: "NAME", Extract: func(v any) string { return v.(api.Tag).Name }},
+		{Name: "COLOR", Extract: func(v any) string { return v.(api.Tag).Color }},
+	}
+}
+
+// callTagFields describes the columns for a call/tag association.
+func callTagFields() []output.Field {
+	return []output.Field{
+		{Name: "CALLID", Extract: func(v any) string { return v.(api.CallTag).CallID.String() }},
+		{Name: "TAGID", Extract: func(v any) string { return v.(api.CallTag).TagID.String() }},
+	}
+}
+
+// crmAnswerFields describes the columns for CRM filling answer output.
+func crmAnswerFields() []output.Field {
+	return []output.Field{
+		{Name: "UUID", Extract: func(v any) string { return v.(api.CrmFillingAnswer).UUID }},
+		{Name: "FIELD", Extract: func(v any) string { return v.(api.CrmFillingAnswer).CrmFillingFieldUUID }},
+		{Name: "CRMID", Extract: func(v any) string { return v.(api.CrmFillingAnswer).CRMID }},
+		{Name: "MODIFIED", Extract: func(v any) string { return v.(api.CrmFillingAnswer).ModifiedOn }},
+	}
+}
+
+// newUploadCmd uploads a call by recording URL (POST /calls -> 202). Modjo
+// downloads and processes the recording asynchronously.
+func newUploadCmd(f *cmdutil.Factory) *cobra.Command {
+	var (
+		mediaURL, date, name, direction, account, deal string
+		duration                                       float64
+		participants                                   []string
+		tags                                           []string
+	)
+	cmd := &cobra.Command{
+		Use:   "upload --media-url <url> --date <date> --participant <email:type[:name]>...",
+		Short: "Upload a call by recording URL",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if mediaURL == "" || date == "" || len(participants) == 0 {
+				return cmdutil.NewUsageError(fmt.Errorf("--media-url, --date and at least one --participant are required"))
+			}
+			if direction != "" && direction != "inbound" && direction != "outbound" {
+				return cmdutil.NewUsageError(fmt.Errorf("--direction must be inbound or outbound"))
+			}
+			parts, err := parseParticipants(participants)
+			if err != nil {
+				return cmdutil.NewUsageError(err)
+			}
+			acct, err := parseCRMRef(account)
+			if err != nil {
+				return cmdutil.NewUsageError(fmt.Errorf("--account: %w", err))
+			}
+			dl, err := parseCRMRef(deal)
+			if err != nil {
+				return cmdutil.NewUsageError(fmt.Errorf("--deal: %w", err))
+			}
+			in := api.UploadCallInput{
+				DownloadMediaURL: mediaURL,
+				Name:             name,
+				Date:             date,
+				Direction:        direction,
+				Duration:         duration,
+				Participants:     parts,
+				Tags:             tags,
+				Account:          acct,
+				Deal:             dl,
+			}
+			if f.Flags.DryRun {
+				f.IOStreams.Errf("[dry-run] would upload call %q (%d participant(s))\n", mediaURL, len(parts))
+				return nil
+			}
+			client, err := f.APIClient()
+			if err != nil {
+				return err
+			}
+			resp, err := client.UploadCall(cmd.Context(), in)
+			if err != nil {
+				return err
+			}
+			f.IOStreams.Errf("%s Uploaded call %s (status %s)\n", f.IOStreams.Green("✓"), resp.CallID, resp.Status)
+			return cmdutil.RenderSlice(f, []api.UploadCallResponse{resp}, uploadFields())
+		},
+	}
+	cmd.Flags().StringVar(&mediaURL, "media-url", "", "Recording URL Modjo downloads (required)")
+	cmd.Flags().StringVar(&date, "date", "", "Call date/time, ISO-8601 (required)")
+	cmd.Flags().StringVar(&name, "name", "", "Call title")
+	cmd.Flags().StringVar(&direction, "direction", "", "Call direction: inbound|outbound")
+	cmd.Flags().Float64Var(&duration, "duration", 0, "Call duration in seconds")
+	cmd.Flags().StringArrayVar(&participants, "participant", nil, "Participant as email:type[:name] (type=user|contact; repeatable; required)")
+	cmd.Flags().StringArrayVar(&tags, "tag", nil, "Tag to attach (repeatable)")
+	cmd.Flags().StringVar(&account, "account", "", "Attach an account as crm:crmId")
+	cmd.Flags().StringVar(&deal, "deal", "", "Attach a deal as crm:crmId")
+	return cmd
+}
+
+// uploadFields describes the columns for an upload response.
+func uploadFields() []output.Field {
+	return []output.Field{
+		{Name: "CALL_ID", Extract: func(v any) string { return v.(api.UploadCallResponse).CallID }},
+		{Name: "STATUS", Extract: func(v any) string { return v.(api.UploadCallResponse).Status }},
+	}
+}
+
+// parseParticipants turns "email:type[:name]" strings into UploadCallParticipant
+// values. type must be "user" or "contact".
+func parseParticipants(specs []string) ([]api.UploadCallParticipant, error) {
+	out := make([]api.UploadCallParticipant, 0, len(specs))
+	for _, s := range specs {
+		fields := strings.SplitN(s, ":", 3)
+		if len(fields) < 2 || fields[0] == "" || fields[1] == "" {
+			return nil, fmt.Errorf("participant %q must be email:type[:name]", s)
+		}
+		if fields[1] != "user" && fields[1] != "contact" {
+			return nil, fmt.Errorf("participant %q: type must be user or contact", s)
+		}
+		p := api.UploadCallParticipant{Email: fields[0], Type: fields[1]}
+		if len(fields) == 3 {
+			p.Name = fields[2]
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+// parseCRMRef turns "crm:crmId" into a *CRMRef, or nil for an empty spec.
+func parseCRMRef(spec string) (*api.CRMRef, error) {
+	if strings.TrimSpace(spec) == "" {
+		return nil, nil
+	}
+	crm, crmID, ok := strings.Cut(spec, ":")
+	if !ok || crm == "" || crmID == "" {
+		return nil, fmt.Errorf("%q must be crm:crmId", spec)
+	}
+	return &api.CRMRef{CRM: crm, CRMID: crmID}, nil
 }
 
 // fmtTime renders a second offset as mm:ss, or hh:mm:ss for calls past an hour.

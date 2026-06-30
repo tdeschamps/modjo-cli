@@ -1,6 +1,7 @@
-// Package webhooks implements `modjo webhooks`: list, get, create, delete.
-// Webhooks are keyed by UUID (not a numeric id). Writes go through the REST v2
-// management endpoints (the MCP is read-only) and honor --dry-run and --yes.
+// Package webhooks implements `modjo webhooks`: list, get, create, update,
+// delete. Webhooks are keyed by UUID (not a numeric id). Writes go through the
+// REST v2 management endpoints (the MCP is read-only) and honor --dry-run and
+// --yes.
 package webhooks
 
 import (
@@ -21,7 +22,7 @@ func NewCmdWebhooks(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List and manage webhooks",
 		GroupID: "mgmt",
 	}
-	cmd.AddCommand(newListCmd(f), newGetCmd(f), newCreateCmd(f), newDeleteCmd(f))
+	cmd.AddCommand(newListCmd(f), newGetCmd(f), newCreateCmd(f), newUpdateCmd(f), newDeleteCmd(f))
 	return cmd
 }
 
@@ -100,6 +101,62 @@ func newCreateCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Name of the new webhook (required)")
 	cmd.Flags().StringVar(&url, "url", "", "Destination URL for the new webhook (required)")
 	cmd.Flags().StringArrayVar(&events, "event", nil, "Event to subscribe to (repeatable; required): call_summarized|call_recording_deleted|call_transcript_deleted")
+	return cmd
+}
+
+func newUpdateCmd(f *cmdutil.Factory) *cobra.Command {
+	var name, url string
+	var events []string
+	cmd := &cobra.Command{
+		Use:   "update <uuid>",
+		Short: "Update a webhook (partial)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			uuid := args[0]
+			// Send only the flags the user set, so --name "" clears the name
+			// rather than being mistaken for "no flag given".
+			var in api.UpdateWebhookInput
+			if cmd.Flags().Changed("name") {
+				in.Name = api.Ptr(name)
+			}
+			if cmd.Flags().Changed("url") {
+				in.URL = api.Ptr(url)
+			}
+			if cmd.Flags().Changed("event") {
+				in.Events = events
+			}
+			if in.Name == nil && in.URL == nil && in.Events == nil {
+				return cmdutil.NewUsageError(fmt.Errorf("at least one of --name, --url or --event is required"))
+			}
+			if f.Flags.DryRun {
+				var changes []string
+				if in.Name != nil {
+					changes = append(changes, fmt.Sprintf("name=%q", *in.Name))
+				}
+				if in.URL != nil {
+					changes = append(changes, fmt.Sprintf("url=%s", *in.URL))
+				}
+				if in.Events != nil {
+					changes = append(changes, fmt.Sprintf("events=%s", strings.Join(in.Events, ",")))
+				}
+				f.IOStreams.Errf("[dry-run] would update webhook %s (%s)\n", uuid, strings.Join(changes, " "))
+				return nil
+			}
+			client, err := f.APIClient()
+			if err != nil {
+				return err
+			}
+			w, err := client.UpdateWebhook(cmd.Context(), uuid, in)
+			if err != nil {
+				return err
+			}
+			f.IOStreams.Errf("%s Updated webhook %s\n", f.IOStreams.Green("✓"), w.UUID)
+			return cmdutil.RenderSlice(f, []api.Webhook{w}, webhookFields())
+		},
+	}
+	cmd.Flags().StringVar(&name, "name", "", "New name")
+	cmd.Flags().StringVar(&url, "url", "", "New destination URL")
+	cmd.Flags().StringArrayVar(&events, "event", nil, "Replacement event to subscribe to (repeatable)")
 	return cmd
 }
 

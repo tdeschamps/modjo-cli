@@ -1,7 +1,8 @@
-// Package deals implements `modjo deals`: list, get, open.
+// Package deals implements `modjo deals`: list and summary.
 package deals
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -19,7 +20,7 @@ func NewCmdDeals(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List and inspect deals",
 		GroupID: "core",
 	}
-	cmd.AddCommand(newListCmd(f), newGetCmd(f), newOpenCmd(f))
+	cmd.AddCommand(newListCmd(f), newSummaryCmd(f))
 	return cmd
 }
 
@@ -66,37 +67,53 @@ open|won|lost|closed (mapped to "Open"|"Closed won"|"Closed lost"|"Closed").`,
 	return cmd
 }
 
-func newGetCmd(f *cmdutil.Factory) *cobra.Command {
+func newSummaryCmd(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <id>...",
-		Short: "Get one or more deals",
-		Args:  cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := f.APIClient()
-			if err != nil {
-				return err
-			}
-			return cmdutil.GetAndRender(cmd.Context(), f, args, client.GetDeal, dealFields(f.IOStreams))
-		},
-	}
-}
-
-func newOpenCmd(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
-		Use:   "open <id>",
-		Short: "Open a deal in the browser",
+		Use:   "summary <id>",
+		Short: "Print a deal's AI-generated summary",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.APIClient()
 			if err != nil {
 				return err
 			}
-			d, err := client.GetDeal(cmd.Context(), args[0])
+			summary, err := client.GetDealSummary(cmd.Context(), args[0])
 			if err != nil {
 				return err
 			}
-			return cmdutil.OpenResource(f.IOStreams, "deal", args[0], d.CRMLink)
+			format, err := f.OutputFormat()
+			if err != nil {
+				return err
+			}
+			// Machine formats render the structured summary blocks; the interactive
+			// table prints each block in a readable layout.
+			if !format.IsInteractive() {
+				return cmdutil.RenderSlice(f, summary.Data, dealSummaryFields())
+			}
+			if len(summary.Data) == 0 {
+				f.IOStreams.Errf("No summary available for deal %s\n", args[0])
+				return nil
+			}
+			io := f.IOStreams
+			for i, b := range summary.Data {
+				if i > 0 {
+					fmt.Fprintln(io.Out)
+				}
+				if b.Type != "" {
+					fmt.Fprintln(io.Out, io.Bold(b.Type))
+				}
+				fmt.Fprintln(io.Out, b.Value)
+			}
+			return nil
 		},
+	}
+}
+
+// dealSummaryFields describes the columns for machine-format summary output.
+func dealSummaryFields() []output.Field {
+	return []output.Field{
+		{Name: "TYPE", Extract: func(v any) string { return v.(api.DealSummaryBlock).Type }},
+		{Name: "VALUE", Extract: func(v any) string { return v.(api.DealSummaryBlock).Value }},
 	}
 }
 

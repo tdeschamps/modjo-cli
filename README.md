@@ -94,15 +94,16 @@ modjo
 ├── auth        login | logout | status | refresh | switch | token
 ├── config      get | set | list | edit
 ├── profiles    list | use
-├── calls       list | get | transcript | summary | export | open
-├── deals       list | get | open
+├── calls       list | get | transcript | summary | export | upload | notes | next-steps | crm-answers | tags
+├── deals       list | summary
 ├── accounts    list | get | open
 ├── contacts    list | get
-├── users       list | get | create | delete
-├── teams       list | get
+├── users       list | get | create | update | add-team | remove-team | delete
+├── teams       list | get | create | update | delete | members
 ├── tags        list
 ├── topics      list
-├── webhooks    list | get | create | delete
+├── webhooks    list | get | create | update | delete
+├── crm-templates  list | get | fields
 ├── ask         call | deal | account   (natural language over the MCP)
 ├── mcp         serve | tools | call | config
 ├── api         raw authenticated request escape hatch

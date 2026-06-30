@@ -1,0 +1,12 @@
+# calls upload posts a recording URL (POST /calls -> 202) and prints the new call id.
+exec modjo calls upload --media-url https://media/x.mp3 --date 2026-06-25T10:00:00Z --participant rep@acme.com:user:Rep --participant lead@buyer.com:contact
+stdout '"callId": "call-1"'
+stderr 'Uploaded call call-1'
+
+# missing required flags is a usage error.
+! exec modjo calls upload --date 2026-06-25T10:00:00Z
+stderr 'required'
+
+# --dry-run does not hit the API.
+exec modjo calls upload --media-url https://x --date 2026-06-25T10:00:00Z --participant rep@acme.com:user --dry-run
+stderr 'dry-run'
