@@ -149,39 +149,12 @@ func TestDealsList(t *testing.T) {
 	}
 }
 
-func TestDealsGet(t *testing.T) {
-	url, last := dealServer(t, 200, `{"id":12,"name":"Big deal","status":"Open"}`)
-	f, out, _ := dealFactory(t, url)
-	if err := run(t, f, "get", "12"); err != nil {
-		t.Fatal(err)
-	}
-	if last.method != http.MethodGet || last.path != "/deals/12" {
-		t.Errorf("request = %s %s", last.method, last.path)
-	}
-	if !strings.Contains(out.String(), "Big deal") {
-		t.Errorf("output = %q", out.String())
-	}
-}
-
-func TestDealsOpenNoLink(t *testing.T) {
-	// A deal without a CRM link can't be opened: GetDeal succeeds but
-	// OpenResource reports the missing link as an error.
-	url, last := dealServer(t, 200, `{"id":12,"name":"Big deal"}`)
-	f, _, _ := dealFactory(t, url)
-	if err := run(t, f, "open", "12"); err == nil {
-		t.Error("open on a deal with no CRM link should error")
-	}
-	if last.method != http.MethodGet || last.path != "/deals/12" {
-		t.Errorf("request = %s %s", last.method, last.path)
-	}
-}
-
 func TestDealsReadAPIErrors(t *testing.T) {
 	// Each read surfaces a non-2xx API error rather than swallowing it.
 	url, _ := dealServer(t, 500, `{"message":"boom"}`)
 	f, _, _ := dealFactory(t, url)
 	for _, args := range [][]string{
-		{"list"}, {"get", "12"}, {"summary", "12"}, {"open", "12"},
+		{"list"}, {"summary", "12"},
 	} {
 		if err := run(t, f, args...); err == nil {
 			t.Errorf("%v: expected error on 500", args)
@@ -198,7 +171,7 @@ func TestDealsClientBuildErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{
-		{"list"}, {"get", "12"}, {"summary", "12"}, {"open", "12"},
+		{"list"}, {"summary", "12"},
 	} {
 		if err := run(t, f, args...); err == nil {
 			t.Errorf("%v: expected error from malformed config", args)

@@ -48,7 +48,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A credential written via `MODJO_NO_KEYRING` is now found when reading in
   normal keychain mode (cross-store fallback).
 - Pagination no longer stops short on a short or zero-`size` page; the
-  iterator now stops on cumulative total coverage.
+  iterator now stops on cumulative total coverage. Auto-pagination also bounds
+  a runaway server (one that never signals the end) with an explicit error
+  instead of looping unboundedly, and the short-page stop compares against the
+  size the server actually served rather than the requested page size, so a
+  server paging below the requested size no longer truncates the results.
+- CRM filling field `isActive`/`isAutoPush` now serialize as `false` in
+  `-o json` instead of being dropped, so consumers can tell "inactive" from
+  "absent".
+- `calls summary` and `calls next-steps` emit full answers/descriptions in
+  CSV/TSV instead of the ellipsized form meant only for the interactive table.
+- `teams members` now renders the same shape as `users get` for the same
+  person (`name`/`title`/`department`), not the raw `firstName`/`lastName`/
+  `job*` fields.
 - `modjo ask` answers are unwrapped from the MCP `{"answer":"..."}` envelope
   instead of being shown as a raw JSON blob.
 
@@ -56,3 +68,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `emails` and `agents` commands and the `ask --agent` flag — the public API
   exposes neither.
+- `deals get` and `deals open` — the API exposes no `GET /deals/{id}` (only
+  `GET /deals` and `GET /deals/{id}/summary`), so both returned 404. Use
+  `deals list` to inspect deals and `deals summary` for a single deal.

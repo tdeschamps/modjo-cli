@@ -169,7 +169,6 @@ func noLinkHarness(t *testing.T) func(args ...string) error {
 func TestOpenWithoutCRMLink(t *testing.T) {
 	run := noLinkHarness(t)
 	for _, args := range [][]string{
-		{"deals", "open", "D1"},
 		{"accounts", "open", "A1"},
 	} {
 		if err := run(args...); err == nil {

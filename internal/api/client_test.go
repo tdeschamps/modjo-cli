@@ -107,6 +107,45 @@ func TestPaginate_ShortPageWithZeroSizeStillCoversTotal(t *testing.T) {
 	}
 }
 
+func TestPaginate_ServedSizeBelowConstantStillPages(t *testing.T) {
+	// Regression: when Total is unknown (0), the short-page stop must compare the
+	// page length to the size the server actually served, not the local pageSize
+	// constant (50). A server paging at size 25 returns full pages of 25; the old
+	// `len(Data) < pageSize` check treated every full page as short and stopped
+	// after page 1 — silent truncation.
+	mux := http.NewServeMux()
+	mux.HandleFunc("/deals", func(w http.ResponseWriter, r *http.Request) {
+		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+		n := 25 // full page at the server's size
+		if page >= 3 {
+			n = 0 // end after 3 pages: 25 + 25 + 0
+		}
+		vals := make([]json.RawMessage, n)
+		for i := range vals {
+			vals[i] = json.RawMessage(`{"crmId":"D","name":"x"}`)
+		}
+		// Size=25 (≠ pageSize 50), Total unknown (0).
+		_ = json.NewEncoder(w).Encode(listResponse{Data: vals, Pagination: pagination{Page: page, Size: 25, Total: 0}})
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	c := newTestClient(srv.URL)
+
+	count := 0
+	for _, err := range c.Deals(context.Background(), DealFilter{}) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		count++
+		if count > 200 {
+			t.Fatal("pagination did not terminate")
+		}
+	}
+	if count != 50 {
+		t.Errorf("want 50 rows across 2 full pages served at size 25, got %d", count)
+	}
+}
+
 func TestDealsList_RespectsLimit(t *testing.T) {
 	srv := fixtureServer(t)
 	defer srv.Close()
@@ -133,7 +172,7 @@ func TestErrorMapping(t *testing.T) {
 	defer srv.Close()
 	c := newTestClient(srv.URL)
 
-	_, err := c.GetDeal(context.Background(), "nope")
+	_, err := c.GetAccount(context.Background(), "nope")
 	if err == nil {
 		t.Fatal("expected error")
 	}

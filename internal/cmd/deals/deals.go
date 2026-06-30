@@ -1,4 +1,4 @@
-// Package deals implements `modjo deals`: list, get, summary, open.
+// Package deals implements `modjo deals`: list and summary.
 package deals
 
 import (
@@ -20,7 +20,7 @@ func NewCmdDeals(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List and inspect deals",
 		GroupID: "core",
 	}
-	cmd.AddCommand(newListCmd(f), newGetCmd(f), newSummaryCmd(f), newOpenCmd(f))
+	cmd.AddCommand(newListCmd(f), newSummaryCmd(f))
 	return cmd
 }
 
@@ -65,21 +65,6 @@ open|won|lost|closed (mapped to "Open"|"Closed won"|"Closed lost"|"Closed").`,
 	cmd.Flags().StringVar(&account, "account", "", "Filter by account ID (numeric)")
 	cmd.Flags().StringVar(&status, "status", "", "Filter by status (open|won|lost|closed or canonical)")
 	return cmd
-}
-
-func newGetCmd(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <id>...",
-		Short: "Get one or more deals",
-		Args:  cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := f.APIClient()
-			if err != nil {
-				return err
-			}
-			return cmdutil.GetAndRender(cmd.Context(), f, args, client.GetDeal, dealFields(f.IOStreams))
-		},
-	}
 }
 
 func newSummaryCmd(f *cmdutil.Factory) *cobra.Command {
@@ -129,25 +114,6 @@ func dealSummaryFields() []output.Field {
 	return []output.Field{
 		{Name: "TYPE", Extract: func(v any) string { return v.(api.DealSummaryBlock).Type }},
 		{Name: "VALUE", Extract: func(v any) string { return v.(api.DealSummaryBlock).Value }},
-	}
-}
-
-func newOpenCmd(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
-		Use:   "open <id>",
-		Short: "Open a deal in the browser",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := f.APIClient()
-			if err != nil {
-				return err
-			}
-			d, err := client.GetDeal(cmd.Context(), args[0])
-			if err != nil {
-				return err
-			}
-			return cmdutil.OpenResource(f.IOStreams, "deal", args[0], d.CRMLink)
-		},
 	}
 }
 

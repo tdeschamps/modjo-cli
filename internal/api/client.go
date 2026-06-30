@@ -192,7 +192,15 @@ func paginate[T any](ctx context.Context, c *Client, path string, q queryFunc, l
 			if resp.Pagination.Total > 0 && fetched >= resp.Pagination.Total {
 				return
 			}
-			if resp.Pagination.Total == 0 && len(resp.Data) < pageSize {
+			// Compare against the size the server actually served, not the local
+			// pageSize constant: a server may page at its own size (spec default
+			// 25, max 100), so a full page can be shorter than pageSize without
+			// being the last one. Fall back to pageSize when the server omits size.
+			servedSize := resp.Pagination.Size
+			if servedSize <= 0 {
+				servedSize = pageSize
+			}
+			if resp.Pagination.Total == 0 && len(resp.Data) < servedSize {
 				return
 			}
 		}
@@ -269,15 +277,6 @@ func (c *Client) GetCallTranscript(ctx context.Context, id string) ([]Transcript
 // GetCallSummaries fetches a call's pre-generated summaries.
 func (c *Client) GetCallSummaries(ctx context.Context, id string) ([]CallSummary, error) {
 	return getData[CallSummary](ctx, c, "/calls/"+url.PathEscape(id)+"/summaries")
-}
-
-// GetDeal fetches one deal by numeric id. Note: the spec exposes
-// GET /deals/{id}/summary but no plain GET /deals/{id}; this is kept for
-// callers that resolve a deal from the list endpoint.
-func (c *Client) GetDeal(ctx context.Context, id string) (Deal, error) {
-	var out Deal
-	err := c.doJSON(ctx, http.MethodGet, "/deals/"+url.PathEscape(id), nil, nil, &out)
-	return out, err
 }
 
 // GetAccount fetches one account by numeric id.

@@ -84,9 +84,6 @@ func TestAllGetters(t *testing.T) {
 	if _, err := c.GetCall(ctx, "1", "transcript"); err != nil {
 		t.Errorf("GetCall: %v", err)
 	}
-	if _, err := c.GetDeal(ctx, "1"); err != nil {
-		t.Errorf("GetDeal: %v", err)
-	}
 	if _, err := c.GetAccount(ctx, "1"); err != nil {
 		t.Errorf("GetAccount: %v", err)
 	}

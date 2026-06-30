@@ -263,6 +263,30 @@ func TestCrmFillingTemplateFields_Paginated(t *testing.T) {
 	}
 }
 
+// CrmFillingField.IsActive/IsAutoPush are spec-required booleans, so a false
+// value must serialize to `false` in `-o json`, not vanish. (With `,omitempty`
+// the keys disappear and a consumer can't tell "inactive" from "absent".)
+func TestCrmFillingField_FalseBoolsSurviveJSON(t *testing.T) {
+	b, err := json.Marshal(CrmFillingField{UUID: "f1", IsActive: false, IsAutoPush: false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(b, &got); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"isActive", "isAutoPush"} {
+		v, ok := got[key]
+		if !ok {
+			t.Errorf("%s missing from JSON %s", key, b)
+			continue
+		}
+		if v != false {
+			t.Errorf("%s = %v, want false", key, v)
+		}
+	}
+}
+
 // --- teams writes + members ---
 
 func TestCreateTeam(t *testing.T) {
@@ -321,6 +345,11 @@ func TestTeamMembers_Paginated(t *testing.T) {
 	}
 	if len(got) != 1 || got[0].Email != "a@x.com" {
 		t.Fatalf("members = %+v", got)
+	}
+	// TeamMember aliases User, so firstName/lastName fold into Name exactly as
+	// `users get` decodes them — one consistent shape for the same entity.
+	if got[0].Name != "A B" {
+		t.Errorf("name = %q, want folded \"A B\"", got[0].Name)
 	}
 }
 

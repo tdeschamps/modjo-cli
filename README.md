@@ -95,7 +95,7 @@ modjo
 ├── config      get | set | list | edit
 ├── profiles    list | use
 ├── calls       list | get | transcript | summary | export | upload | notes | next-steps | crm-answers | tags
-├── deals       list | get | summary | open
+├── deals       list | summary
 ├── accounts    list | get | open
 ├── contacts    list | get
 ├── users       list | get | create | update | add-team | remove-team | delete

@@ -40,13 +40,16 @@ func teamFields() []output.Field {
 	}
 }
 
+// memberFields mirrors users' columns: TeamMember is an alias of api.User, so a
+// member renders identically whether it's surfaced here or by `users get`.
 func memberFields() []output.Field {
 	return []output.Field{
 		{Name: "ID", Extract: func(v any) string { return v.(api.TeamMember).ID.String() }},
 		{Name: "EMAIL", Extract: func(v any) string { return v.(api.TeamMember).Email }},
-		{Name: "FIRST", Extract: func(v any) string { return v.(api.TeamMember).FirstName }},
-		{Name: "LAST", Extract: func(v any) string { return v.(api.TeamMember).LastName }},
+		{Name: "NAME", Extract: func(v any) string { return v.(api.TeamMember).Name }},
 		{Name: "ROLE", Extract: func(v any) string { return v.(api.TeamMember).Role }},
+		{Name: "DEPARTMENT", Extract: func(v any) string { return v.(api.TeamMember).Department }},
+		{Name: "TITLE", Extract: func(v any) string { return v.(api.TeamMember).Title }},
 	}
 }
 

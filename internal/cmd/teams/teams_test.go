@@ -154,7 +154,7 @@ func TestTeamFieldExtractors(t *testing.T) {
 		value  any
 	}{
 		{teamFields(), api.Team{ID: "5", Name: "Sales", CreatedOn: "2026-06-01", ModifiedOn: "2026-06-02"}},
-		{memberFields(), api.TeamMember{ID: "1", Email: "a@x.com", FirstName: "A", LastName: "B", Role: "ADMIN"}},
+		{memberFields(), api.TeamMember{ID: "1", Email: "a@x.com", Name: "A B", Role: "ADMIN"}},
 	}
 	for _, c := range cases {
 		for _, f := range c.fields {

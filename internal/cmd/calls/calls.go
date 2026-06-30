@@ -409,15 +409,6 @@ func splitCSV(s string) []string {
 	return out
 }
 
-func truncate(s string, n int) string {
-	s = strings.ReplaceAll(s, "\n", " ")
-	r := []rune(s)
-	if len(r) <= n {
-		return s
-	}
-	return string(r[:n-1]) + "…"
-}
-
 // transcriptFields describes the columns for machine-format transcript output.
 func transcriptFields() []output.Field {
 	return []output.Field{
@@ -433,7 +424,7 @@ func summaryFields() []output.Field {
 	return []output.Field{
 		{Name: "TEMPLATE", Extract: func(v any) string { return v.(api.CallSummary).TemplateTitle }},
 		{Name: "LENGTH", Extract: func(v any) string { return v.(api.CallSummary).TemplateLength }},
-		{Name: "ANSWER", Extract: func(v any) string { return truncate(v.(api.CallSummary).Answer, 80) }},
+		{Name: "ANSWER", Extract: func(v any) string { return v.(api.CallSummary).Answer }},
 	}
 }
 
@@ -452,7 +443,7 @@ func noteFields() []output.Field {
 func nextStepFields() []output.Field {
 	return []output.Field{
 		{Name: "TITLE", Extract: func(v any) string { return v.(api.NextStepItem).Title }},
-		{Name: "DESCRIPTION", Extract: func(v any) string { return truncate(v.(api.NextStepItem).Description, 80) }},
+		{Name: "DESCRIPTION", Extract: func(v any) string { return v.(api.NextStepItem).Description }},
 	}
 }
 

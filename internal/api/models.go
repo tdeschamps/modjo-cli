@@ -278,21 +278,10 @@ type UserTeam struct {
 	TeamID json.Number `json:"teamId"`
 }
 
-// TeamMember is a user belonging to a team (OpenAPI TeamMember; same shape as
-// User).
-type TeamMember struct {
-	ID            json.Number `json:"id"`
-	Email         string      `json:"email,omitempty"`
-	FirstName     string      `json:"firstName,omitempty"`
-	LastName      string      `json:"lastName,omitempty"`
-	PhoneNumber   string      `json:"phoneNumber,omitempty"`
-	JobTitle      string      `json:"jobTitle,omitempty"`
-	JobDepartment string      `json:"jobDepartment,omitempty"`
-	Role          string      `json:"role,omitempty"`
-	Timezone      string      `json:"timezone,omitempty"`
-	CreatedOn     string      `json:"createdOn,omitempty"`
-	ModifiedOn    string      `json:"modifiedOn,omitempty"`
-}
+// TeamMember is a user belonging to a team. The OpenAPI TeamMember has the same
+// shape as User, so it's an alias: `teams members` and `users get` decode the
+// raw API fields identically (via User.UnmarshalJSON) and emit the same JSON.
+type TeamMember = User
 
 // DealSummaryBlock is one section of a deal summary (OpenAPI inner shape of
 // DealSummaryContent.data).
@@ -347,8 +336,8 @@ type CrmFillingField struct {
 	FieldLabel string      `json:"fieldLabel,omitempty"`
 	FieldKey   string      `json:"fieldKey,omitempty"`
 	FieldType  string      `json:"fieldType,omitempty"` // string|textarea|number|date|boolean|enum
-	IsActive   bool        `json:"isActive,omitempty"`
-	IsAutoPush bool        `json:"isAutoPush,omitempty"`
+	IsActive   bool        `json:"isActive"`
+	IsAutoPush bool        `json:"isAutoPush"`
 	CreatedOn  string      `json:"createdOn,omitempty"`
 	ModifiedOn string      `json:"modifiedOn,omitempty"`
 }

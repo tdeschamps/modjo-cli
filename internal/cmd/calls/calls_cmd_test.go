@@ -87,6 +87,24 @@ func TestCallsNextSteps(t *testing.T) {
 	}
 }
 
+// CSV/TSV is a machine format: summary answers and next-step descriptions must
+// be emitted in full, not the ellipsized form used by the interactive table.
+func TestCallsNextStepsCSVNotTruncated(t *testing.T) {
+	long := strings.Repeat("detail ", 20) // 140 chars, well past the table's 80-rune cap
+	url, _ := callsCmdServer(t, 200, `{"data":[{"title":"Send proposal","description":"`+long+`"}]}`)
+	f, out := callsCmdFactory(t, url)
+	f.Flags.Output = "csv"
+	if err := runCalls(t, f, "next-steps", "42"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "…") {
+		t.Errorf("CSV output is truncated: %q", out.String())
+	}
+	if !strings.Contains(out.String(), long) {
+		t.Errorf("CSV output missing full description: %q", out.String())
+	}
+}
+
 func TestCallsTagsList(t *testing.T) {
 	url, last := callsCmdServer(t, 200, `{"data":[{"id":3,"name":"Demo","color":"#fff"}]}`)
 	f, out := callsCmdFactory(t, url)

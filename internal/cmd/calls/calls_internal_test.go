@@ -19,19 +19,6 @@ func TestSplitCSV(t *testing.T) {
 	}
 }
 
-func TestTruncate(t *testing.T) {
-	if truncate("short", 60) != "short" {
-		t.Error("short passthrough")
-	}
-	if truncate("multi\nline", 60) != "multi line" {
-		t.Error("newlines collapsed")
-	}
-	got := truncate("abcdefghij", 5)
-	if len([]rune(got)) != 5 {
-		t.Errorf("truncate length = %q", got)
-	}
-}
-
 func TestFmtTime(t *testing.T) {
 	if fmtTime(75) != "01:15" {
 		t.Errorf("fmtTime(75) = %q", fmtTime(75))
