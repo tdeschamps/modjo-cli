@@ -14,6 +14,7 @@ import (
 	apicmd "github.com/tdeschamps/modjo-cli/internal/cmd/api"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/ask"
 	authcmd "github.com/tdeschamps/modjo-cli/internal/cmd/auth"
+	"github.com/tdeschamps/modjo-cli/internal/cmd/callreviews"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/calls"
 	"github.com/tdeschamps/modjo-cli/internal/cmd/completion"
 	configcmd "github.com/tdeschamps/modjo-cli/internal/cmd/config"
@@ -112,6 +113,7 @@ See 'modjo <command> --help' for details on any command.`,
 		configcmd.NewCmdConfig(f),
 		profiles.NewCmdProfiles(f),
 		calls.NewCmdCalls(f),
+		callreviews.NewCmdCallReviews(f),
 		deals.NewCmdDeals(f),
 		accounts.NewCmdAccounts(f),
 		contacts.NewCmdContacts(f),

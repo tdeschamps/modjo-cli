@@ -209,7 +209,11 @@ func TestCallsSubresourceAPIErrors(t *testing.T) {
 	url, _ := callsCmdServer(t, 500, `{"message":"boom"}`)
 	f, _ := callsCmdFactory(t, url)
 	for _, args := range [][]string{
-		{"notes", "42"}, {"next-steps", "42"}, {"crm-answers", "42"}, {"tags", "list", "42"},
+		{"notes", "42"},
+		{"next-steps", "42"},
+		{"crm-answers", "42"},
+		{"tags", "list", "42"},
+		{"recording", "42"},
 	} {
 		if err := runCalls(t, f, args...); err == nil {
 			t.Errorf("%v: expected error on 500", args)
@@ -289,6 +293,7 @@ func TestCallFieldExtractors(t *testing.T) {
 		{callTagFields(), api.CallTag{CallID: "42", TagID: "3"}},
 		{crmAnswerFields(), api.CrmFillingAnswer{UUID: "a1", CrmFillingFieldUUID: "f1", CRMID: "C1", ModifiedOn: "2026-06-02"}},
 		{uploadFields(), api.UploadCallResponse{CallID: "c1", Status: "processing"}},
+		{recordingFields(), api.CallRecording{URL: "https://media/rec.mp4", ExpiresAt: "2026-09-17T15:30:00.000Z", MediaType: "video"}},
 	}
 	for _, c := range cases {
 		for _, f := range c.fields {
@@ -356,5 +361,57 @@ func TestCallsUploadDryRun(t *testing.T) {
 	}
 	if last.method != "" {
 		t.Errorf("dry-run must not call the API, got %s", last.method)
+	}
+}
+
+func TestCallsRecording(t *testing.T) {
+	url, last := callsCmdServer(t, 200, `{"url":"https://media/rec.mp4?sig=abc","expiresAt":"2026-09-17T15:30:00.000Z","mediaType":"video"}`)
+	f, out := callsCmdFactory(t, url)
+	if err := runCalls(t, f, "recording", "42"); err != nil {
+		t.Fatal(err)
+	}
+	if last.method != http.MethodGet || last.path != "/calls/42/recording" {
+		t.Errorf("request = %s %s", last.method, last.path)
+	}
+	if !strings.Contains(out.String(), "https://media/rec.mp4?sig=abc") {
+		t.Errorf("output = %q", out.String())
+	}
+}
+
+// --open hands the signed URL to the browser instead of printing it.
+func TestCallsRecordingOpen(t *testing.T) {
+	url, _ := callsCmdServer(t, 200, `{"url":"https://media/rec.mp4?sig=abc","mediaType":"audio"}`)
+	f, out := callsCmdFactory(t, url)
+
+	var opened string
+	orig := cmdutil.BrowserRunner
+	cmdutil.BrowserRunner = func(name string, args ...string) error {
+		opened = args[len(args)-1]
+		return nil
+	}
+	defer func() { cmdutil.BrowserRunner = orig }()
+
+	if err := runCalls(t, f, "recording", "42", "--open"); err != nil {
+		t.Fatal(err)
+	}
+	if opened != "https://media/rec.mp4?sig=abc" {
+		t.Errorf("opened = %q", opened)
+	}
+	if strings.Contains(out.String(), "sig=abc") {
+		t.Errorf("--open should not also print the URL to stdout: %q", out.String())
+	}
+}
+
+// A recording deleted for data retention answers 410; scripts should see the
+// not-found exit code rather than the generic error one.
+func TestCallsRecordingGoneExitCode(t *testing.T) {
+	url, _ := callsCmdServer(t, 410, `{"code":"gone","message":"Recording deleted"}`)
+	f, _ := callsCmdFactory(t, url)
+	err := runCalls(t, f, "recording", "42")
+	if err == nil {
+		t.Fatal("expected an error on 410")
+	}
+	if got := cmdutil.ExitCodeForError(err); got != cmdutil.ExitNotFound {
+		t.Errorf("exit code = %d, want %d", got, cmdutil.ExitNotFound)
 	}
 }

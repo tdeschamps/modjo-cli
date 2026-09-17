@@ -94,7 +94,8 @@ modjo
 ├── auth        login | logout | status | refresh | switch | token
 ├── config      get | set | list | edit
 ├── profiles    list | use
-├── calls       list | get | transcript | summary | export | upload | notes | next-steps | crm-answers | tags
+├── calls       list | get | transcript | summary | recording | export | upload | notes | next-steps | crm-answers | tags
+├── call-reviews  list
 ├── deals       list | summary
 ├── accounts    list | get | open
 ├── contacts    list | get

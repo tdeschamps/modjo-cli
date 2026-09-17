@@ -141,6 +141,26 @@ func (f WebhookFilter) query(page int) url.Values {
 	return q
 }
 
+// CallReviewFilter filters the call reviews list (GET /call-reviews). Unlike
+// the rest of v2, this endpoint names its params in camelCase
+// (startDateTime/endDateTime, not from/to or start_date_time) — the filter is
+// the one place that has to know.
+type CallReviewFilter struct {
+	Since string // startDateTime (inclusive lower bound on createdOn)
+	Until string // endDateTime (inclusive upper bound on createdOn)
+	Order string // asc | desc (sort on createdOn; server default desc)
+	Limit int
+}
+
+func (f CallReviewFilter) query(page int) url.Values {
+	q := url.Values{}
+	setNonEmpty(q, "startDateTime", f.Since)
+	setNonEmpty(q, "endDateTime", f.Until)
+	setNonEmpty(q, "order", f.Order)
+	setPaging(q, f.Limit, page)
+	return q
+}
+
 // PageFilter is the paging-only filter shared by sub-resource list endpoints
 // that take no other query params (team members, CRM filling answers, template
 // fields).

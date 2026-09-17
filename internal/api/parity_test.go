@@ -426,3 +426,113 @@ func TestUpdateWebhook(t *testing.T) {
 		t.Fatalf("webhook = %+v", w)
 	}
 }
+
+// --- call recording ---
+
+func TestGetCallRecording(t *testing.T) {
+	srv, cap := recordingServer(t, 200, `{"url":"https://media/rec.mp4?sig=abc","expiresAt":"2026-09-17T15:30:00.000Z","mediaType":"video"}`)
+	c := newTestClient(srv.URL)
+	rec, err := c.GetCallRecording(context.Background(), "42")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cap.method != http.MethodGet || cap.path != "/calls/42/recording" {
+		t.Errorf("request = %s %s", cap.method, cap.path)
+	}
+	if rec.URL != "https://media/rec.mp4?sig=abc" || rec.MediaType != "video" || rec.ExpiresAt == "" {
+		t.Fatalf("recording = %+v", rec)
+	}
+}
+
+// A deleted recording answers 410; the client must surface it as a typed
+// *Error so the command layer can map it to an exit code.
+func TestGetCallRecording_Gone(t *testing.T) {
+	srv, _ := recordingServer(t, 410, `{"code":"gone","message":"Recording deleted"}`)
+	c := newTestClient(srv.URL)
+	_, err := c.GetCallRecording(context.Background(), "42")
+	var apiErr *Error
+	if !asError(err, &apiErr) {
+		t.Fatalf("err = %v, want *api.Error", err)
+	}
+	if apiErr.StatusCode != 410 || apiErr.Message != "Recording deleted" {
+		t.Fatalf("apiErr = %+v", apiErr)
+	}
+}
+
+// --- call reviews ---
+
+func TestCallReviews(t *testing.T) {
+	srv, cap := recordingServer(t, 200, `{"data":[{
+		"id":1024,"callId":55555,"template":{"id":12,"title":"Cold Calling"},
+		"revieweeId":88,"rating":3.2,"isPrivate":false,"isAiGenerated":true,
+		"createdById":null,"createdOn":"2026-09-15T14:30:00.000Z",
+		"answers":[{"id":42,"question":{"id":500,"title":"Intro"},"weight":0,"rating":3,"feedback":"Clean."}]
+	}],"pagination":{"page":1,"size":50,"total":1}}`)
+	c := newTestClient(srv.URL)
+
+	var got []CallReview
+	for r, err := range c.CallReviews(context.Background(), CallReviewFilter{
+		Since: "2026-09-01", Until: "2026-09-30", Order: "asc", Limit: 1,
+	}) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, r)
+	}
+	if cap.method != http.MethodGet || cap.path != "/call-reviews" {
+		t.Errorf("request = %s %s", cap.method, cap.path)
+	}
+	q, _ := url.ParseQuery(cap.query)
+	// The endpoint uses camelCase params, unlike the snake_case rest of v2.
+	if q.Get("startDateTime") != "2026-09-01" || q.Get("endDateTime") != "2026-09-30" || q.Get("order") != "asc" {
+		t.Errorf("query = %s", cap.query)
+	}
+	if len(got) != 1 {
+		t.Fatalf("reviews = %+v", got)
+	}
+	r := got[0]
+	if r.ID.String() != "1024" || r.CallID.String() != "55555" || r.Template.Title != "Cold Calling" {
+		t.Errorf("review = %+v", r)
+	}
+	if r.Rating.String() != "3.2" || !r.IsAIGenerated || r.IsPrivate {
+		t.Errorf("review scores = %+v", r)
+	}
+	// createdById is null for AI-authored reviews: it must stay empty, not "0".
+	if r.CreatedByID.String() != "" {
+		t.Errorf("CreatedByID = %q, want empty for null", r.CreatedByID.String())
+	}
+	if len(r.Answers) != 1 || r.Answers[0].Question.Title != "Intro" || r.Answers[0].Feedback != "Clean." {
+		t.Errorf("answers = %+v", r.Answers)
+	}
+}
+
+// A null overall rating (every question marked not-applicable) and a -1
+// per-question rating are distinct from a real score of 0 — the json.Number
+// fields must preserve all three.
+func TestCallReviews_NullAndNotApplicableRatings(t *testing.T) {
+	srv, _ := recordingServer(t, 200, `{"data":[{
+		"id":1,"callId":2,"rating":null,
+		"answers":[{"id":9,"rating":-1},{"id":10,"rating":0}]
+	}],"pagination":{"page":1,"size":50,"total":1}}`)
+	c := newTestClient(srv.URL)
+
+	var r CallReview
+	for v, err := range c.CallReviews(context.Background(), CallReviewFilter{Limit: 1}) {
+		if err != nil {
+			t.Fatal(err)
+		}
+		r = v
+	}
+	if r.Rating.String() != "" {
+		t.Errorf("Rating = %q, want empty for null", r.Rating.String())
+	}
+	if len(r.Answers) != 2 {
+		t.Fatalf("answers = %+v", r.Answers)
+	}
+	if r.Answers[0].Rating.String() != "-1" {
+		t.Errorf("not-applicable rating = %q, want -1", r.Answers[0].Rating.String())
+	}
+	if r.Answers[1].Rating.String() != "0" {
+		t.Errorf("zero rating = %q, want 0", r.Answers[1].Rating.String())
+	}
+}

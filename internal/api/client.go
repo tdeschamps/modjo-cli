@@ -254,6 +254,12 @@ func (c *Client) Webhooks(ctx context.Context, f WebhookFilter) iter.Seq2[Webhoo
 	return paginate[Webhook](ctx, c, "/webhooks", f.query, f.Limit)
 }
 
+// CallReviews lists call reviews with their per-question answers
+// (GET /call-reviews).
+func (c *Client) CallReviews(ctx context.Context, f CallReviewFilter) iter.Seq2[CallReview, error] {
+	return paginate[CallReview](ctx, c, "/call-reviews", f.query, f.Limit)
+}
+
 // --- single-object gets ---
 
 // GetCall fetches one call, optionally expanding related entities (one of
@@ -375,6 +381,18 @@ func (c *Client) GetCallNotes(ctx context.Context, id string) ([]Note, error) {
 // (GET /calls/{id}/next-steps). Empty while the call is still processing.
 func (c *Client) GetCallNextSteps(ctx context.Context, id string) ([]NextStepItem, error) {
 	return getData[NextStepItem](ctx, c, "/calls/"+url.PathEscape(id)+"/next-steps")
+}
+
+// GetCallRecording fetches a signed URL for a call's recording
+// (GET /calls/{id}/recording). The link is valid for one hour; call again for a
+// fresh one. The API answers 404 when the call is unknown or the recording is
+// not ready yet, and 410 once the recording has been deleted for data
+// retention. Unlike the other call sub-resources this one is a bare object, not
+// a {data:[...]} envelope.
+func (c *Client) GetCallRecording(ctx context.Context, id string) (CallRecording, error) {
+	var out CallRecording
+	err := c.doJSON(ctx, http.MethodGet, "/calls/"+url.PathEscape(id)+"/recording", nil, nil, &out)
+	return out, err
 }
 
 // GetCallTags lists the tags associated with a call (GET /calls/{id}/tags).

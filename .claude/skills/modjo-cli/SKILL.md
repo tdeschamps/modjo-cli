@@ -1,6 +1,6 @@
 ---
 name: modjo-cli
-description: Use when querying or managing Modjo data (calls, deals, accounts, contacts, users, teams, webhooks, CRM templates) or asking AI questions about a call/deal/account via the `modjo` CLI. Covers the correct flags, the numeric-ID-vs-name gotcha, and efficient --json/--jq idioms so commands work first try.
+description: Use when querying or managing Modjo data (calls, call reviews, deals, accounts, contacts, users, teams, webhooks, CRM templates) or asking AI questions about a call/deal/account via the `modjo` CLI. Covers the correct flags, the numeric-ID-vs-name gotcha, and efficient --json/--jq idioms so commands work first try.
 ---
 
 # Driving the `modjo` CLI efficiently
@@ -41,9 +41,11 @@ resolved profile, base URL, MCP URL, and auth status.
 | `calls get <id>` | `--expand …` |
 | `calls transcript <id>` | `--speakers`, `--timestamps` |
 | `calls summary <id>` | (pre-generated AI summaries) |
+| `calls recording <id>` | signed download URL, valid 1h; `--open` sends it to the browser. Exit 5 when the recording is missing or retention-deleted |
 | `calls notes <id>` / `calls next-steps <id>` / `calls crm-answers <id>` | per-call AI notes, next steps, and CRM answers |
 | `calls tags list\|add\|remove <id>` | `add` takes `--tag <tagId>`; `remove <id> <tagId>` |
 | `calls upload` | `--media-url <url> --date <date> --participant <email:type[:name]>` (repeatable) |
+| `call-reviews list` | `--since`/`--until` (YYYY-MM-DD or `30d`), `--order asc\|desc`. Per-question `answers` are JSON-only — not a table column |
 | `deals list` | `--name`, `--account` (numeric), `--status open\|won\|lost\|closed` |
 | `deals summary <id>` | AI-generated deal summary |
 | `accounts list` | `--name` |
@@ -53,7 +55,7 @@ resolved profile, base URL, MCP URL, and auth status.
 | `users update <id>` | partial update — only the flags you set are sent (pass `--phone ""` to clear) |
 | `users add-team <id> --team <teamId>` / `users remove-team <id> <teamId>` | team membership |
 | `teams create --name <name>` / `teams update <id> --name <name>` / `teams delete <id>` / `teams members <id>` | full team management |
-| `webhooks update <uuid>` | partial update — only the flags you set are sent |
+| `webhooks create` / `webhooks update <uuid>` | `--event` (repeatable): `call_created\|call_transcribed\|call_summarized\|call_tag_added\|call_tag_removed\|call_recording_deleted\|call_transcript_deleted`. `update` is partial — only the flags you set are sent |
 | `crm-templates list` / `crm-templates get <uuid>…` / `crm-templates fields <uuid>` | CRM filling templates and their fields |
 | `tags list` / `topics list` / `teams list` / `webhooks list` | paging only |
 | `ask call\|deal\|account <id> "<q>"` | `--language`; prints prose, add `--json` for structured |

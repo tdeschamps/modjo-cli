@@ -1,0 +1,17 @@
+# call-reviews list returns the reviews with their per-question answers
+# (GET /call-reviews). Non-TTY output defaults to JSON.
+exec modjo call-reviews list
+stdout '"callId": 55555'
+stdout 'Cold Calling'
+
+# The nested answers survive into JSON output — they are not a table column.
+stdout '"answers"'
+stdout 'Clean.'
+
+# --since/--until/--order are accepted and shape the query.
+exec modjo call-reviews list --since 2026-09-01 --until 2026-09-30 --order asc
+stdout '"id": 1024'
+
+# --order only accepts asc|desc.
+! exec modjo call-reviews list --order sideways
+stderr 'asc or desc'
