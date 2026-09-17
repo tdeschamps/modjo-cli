@@ -25,3 +25,8 @@ stderr .
 # calls tags remove with --yes detaches a tag (DELETE /calls/{id}/tags/{tagId} -> 204).
 exec modjo calls tags remove 42 3 --yes
 ! stdout '"error"'
+
+# calls recording prints the signed media URL (GET /calls/{id}/recording).
+exec modjo calls recording 42
+stdout 'rec-42.mp4'
+stdout '"mediaType": "video"'

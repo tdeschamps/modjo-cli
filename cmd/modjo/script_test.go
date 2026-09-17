@@ -106,6 +106,12 @@ func stubHandler() http.Handler {
 			writeJSON(w, map[string]any{"data": []map[string]any{{"id": 9, "title": "Recap", "status": "PUBLISHED", "type": "AI"}}})
 		case strings.HasSuffix(path, "/next-steps"):
 			writeJSON(w, map[string]any{"data": []map[string]any{{"title": "Send quote", "description": "by Friday"}}})
+		case strings.HasSuffix(path, "/recording"):
+			writeJSON(w, map[string]any{
+				"url":       "https://media.example/rec-42.mp4?sig=abc",
+				"expiresAt": "2026-09-17T15:30:00.000Z",
+				"mediaType": "video",
+			})
 		case strings.HasSuffix(path, "/crm-filling-answers"):
 			writeJSON(w, listOf(map[string]any{"uuid": "ans-1", "callId": 42, "crmFillingFieldUuid": "fld-1", "crmId": "C1"}))
 		case strings.HasSuffix(path, "/tags") && r.Method == http.MethodPost:
@@ -118,6 +124,20 @@ func stubHandler() http.Handler {
 		default:
 			writeJSON(w, map[string]any{"id": 42, "name": "Discovery"})
 		}
+	})
+
+	// --- call reviews: list (GET /call-reviews) ---
+	mux.HandleFunc("/v2/call-reviews", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, listOf(map[string]any{
+			"id": 1024, "callId": 55555,
+			"template":   map[string]any{"id": 12, "title": "Cold Calling"},
+			"revieweeId": 88, "rating": 3.2,
+			"isPrivate": false, "isAiGenerated": false,
+			"createdById": 42, "createdOn": "2026-09-15T14:30:00.000Z",
+			"answers": []map[string]any{
+				{"id": 42, "question": map[string]any{"id": 500, "title": "Intro"}, "weight": 0, "rating": 3, "feedback": "Clean."},
+			},
+		}))
 	})
 
 	// --- webhooks: update (PATCH /webhooks/{uuid}) ---

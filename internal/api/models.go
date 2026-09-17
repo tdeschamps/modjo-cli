@@ -226,7 +226,7 @@ type Webhook struct {
 	UUID       string   `json:"uuid"`
 	Name       string   `json:"name"`
 	URL        string   `json:"url"`
-	Events     []string `json:"events,omitempty"` // call_summarized | call_recording_deleted | call_transcript_deleted
+	Events     []string `json:"events,omitempty"` // call_created | call_summarized | call_recording_deleted | call_tag_added | call_tag_removed | call_transcribed | call_transcript_deleted
 	CreatedOn  string   `json:"createdOn,omitempty"`
 	ModifiedOn string   `json:"modifiedOn,omitempty"`
 }
@@ -241,6 +241,56 @@ type CallSummary struct {
 	Language       string `json:"language,omitempty"`
 	CreatedOn      string `json:"createdOn,omitempty"`
 	ModifiedOn     string `json:"modifiedOn,omitempty"`
+}
+
+// CallRecording is the signed download link for a call's media file (OpenAPI
+// CallRecording), returned by GET /calls/{id}/recording. The URL is short-lived
+// (one hour); ExpiresAt says until when.
+type CallRecording struct {
+	URL       string `json:"url"`
+	ExpiresAt string `json:"expiresAt,omitempty"`
+	MediaType string `json:"mediaType,omitempty"` // audio | video
+}
+
+// CallReviewRef is the {id, title} shape the API nests for a review's template
+// and for each answer's question (OpenAPI CallReviewTemplate and
+// CallReviewAnswerQuestion — structurally identical, so one type serves both).
+// Title is null when the underlying row has since been soft-deleted.
+type CallReviewRef struct {
+	ID    json.Number `json:"id,omitempty"`
+	Title string      `json:"title,omitempty"`
+}
+
+// CallReviewAnswer is one per-question answer inside a review (OpenAPI
+// CallReviewAnswer). Rating is a json.Number so an omitted/null score stays
+// empty rather than decoding to 0: the API uses -1 for "not applicable" and a
+// real 0 is the lowest score on the 0-4 scale, so neither may look like the
+// other or like "no answer".
+type CallReviewAnswer struct {
+	ID       json.Number   `json:"id"`
+	Question CallReviewRef `json:"question"`
+	Weight   json.Number   `json:"weight,omitempty"`
+	Rating   json.Number   `json:"rating,omitempty"`
+	Feedback string        `json:"feedback,omitempty"`
+}
+
+// CallReview is a coaching review of a call (OpenAPI CallReview), returned by
+// GET /call-reviews. Rating is the weighted average of the per-question ratings
+// on a 0-4 scale, and is null when the reviewer marked every question as
+// not-applicable — hence json.Number here too (see CallReviewAnswer). CreatedByID
+// is likewise nullable: reviews written by an AI agent carry no user.
+type CallReview struct {
+	ID            json.Number        `json:"id"`
+	CallID        json.Number        `json:"callId,omitempty"`
+	Template      CallReviewRef      `json:"template"`
+	RevieweeID    json.Number        `json:"revieweeId,omitempty"`
+	Rating        json.Number        `json:"rating,omitempty"`
+	IsPrivate     bool               `json:"isPrivate"`
+	IsAIGenerated bool               `json:"isAiGenerated"`
+	CreatedByID   json.Number        `json:"createdById,omitempty"`
+	CreatedOn     string             `json:"createdOn,omitempty"`
+	ModifiedOn    string             `json:"modifiedOn,omitempty"`
+	Answers       []CallReviewAnswer `json:"answers,omitempty"`
 }
 
 // NextStepItem is one action item extracted from a call (OpenAPI NextStepItem).

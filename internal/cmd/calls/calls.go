@@ -1,6 +1,6 @@
 // Package calls implements `modjo calls`: list, get, transcript, summary,
-// export, upload, notes, next-steps, crm-answers, and a tags sub-group
-// (list/add/remove).
+// recording, export, upload, notes, next-steps, crm-answers, and a tags
+// sub-group (list/add/remove).
 package calls
 
 import (
@@ -28,6 +28,7 @@ func NewCmdCalls(f *cmdutil.Factory) *cobra.Command {
 		newGetCmd(f),
 		newTranscriptCmd(f),
 		newSummaryCmd(f),
+		newRecordingCmd(f),
 		newExportCmd(f),
 		newUploadCmd(f),
 		newNotesCmd(f),
@@ -212,6 +213,44 @@ func newSummaryCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 			return nil
 		},
+	}
+}
+
+// newRecordingCmd fetches a signed download link for a call's recording
+// (GET /calls/{id}/recording). The link expires after an hour, so --open exists
+// to hand it straight to the browser rather than have the user copy a URL that
+// is already ticking.
+func newRecordingCmd(f *cmdutil.Factory) *cobra.Command {
+	var open bool
+	cmd := &cobra.Command{
+		Use:   "recording <callId>",
+		Short: "Get a signed download URL for a call recording",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := f.APIClient()
+			if err != nil {
+				return err
+			}
+			rec, err := client.GetCallRecording(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			if open {
+				return cmdutil.OpenResource(f.IOStreams, "call", args[0], rec.URL)
+			}
+			return cmdutil.RenderSlice(f, []api.CallRecording{rec}, recordingFields())
+		},
+	}
+	cmd.Flags().BoolVar(&open, "open", false, "Open the recording in a browser instead of printing the URL")
+	return cmd
+}
+
+// recordingFields describes the columns for call recording output.
+func recordingFields() []output.Field {
+	return []output.Field{
+		{Name: "URL", Extract: func(v any) string { return v.(api.CallRecording).URL }},
+		{Name: "EXPIRES", Extract: func(v any) string { return v.(api.CallRecording).ExpiresAt }},
+		{Name: "TYPE", Extract: func(v any) string { return v.(api.CallRecording).MediaType }},
 	}
 }
 

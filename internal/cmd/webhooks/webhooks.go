@@ -100,7 +100,7 @@ func newCreateCmd(f *cmdutil.Factory) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Name of the new webhook (required)")
 	cmd.Flags().StringVar(&url, "url", "", "Destination URL for the new webhook (required)")
-	cmd.Flags().StringArrayVar(&events, "event", nil, "Event to subscribe to (repeatable; required): call_summarized|call_recording_deleted|call_transcript_deleted")
+	cmd.Flags().StringArrayVar(&events, "event", nil, "Event to subscribe to (repeatable; required): call_created|call_transcribed|call_summarized|call_tag_added|call_tag_removed|call_recording_deleted|call_transcript_deleted")
 	return cmd
 }
 
@@ -156,7 +156,7 @@ func newUpdateCmd(f *cmdutil.Factory) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&name, "name", "", "New name")
 	cmd.Flags().StringVar(&url, "url", "", "New destination URL")
-	cmd.Flags().StringArrayVar(&events, "event", nil, "Replacement event to subscribe to (repeatable)")
+	cmd.Flags().StringArrayVar(&events, "event", nil, "Replacement event to subscribe to (repeatable; see `webhooks create --help` for the event names)")
 	return cmd
 }
 
