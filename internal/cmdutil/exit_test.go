@@ -20,6 +20,8 @@ func TestExitCodeForError(t *testing.T) {
 		{"auth 401", &api.Error{StatusCode: 401}, 3},
 		{"authz 403", &api.Error{StatusCode: 403}, 4},
 		{"notfound 404", &api.Error{StatusCode: 404}, 5},
+		// A recording deleted for data retention: same branch as 404 for a caller.
+		{"gone 410", &api.Error{StatusCode: 410}, 5},
 		{"ratelimit 429", &api.Error{StatusCode: 429}, 6},
 		{"validation 422", &api.Error{StatusCode: 422}, 7},
 		{"server 500", &api.Error{StatusCode: 500}, 8},

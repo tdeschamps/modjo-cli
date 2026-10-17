@@ -82,6 +82,12 @@ func ExitCodeForError(err error) int {
 			return ExitForbidden
 		case http.StatusNotFound:
 			return ExitNotFound
+		case http.StatusGone:
+			// GET /calls/{id}/recording answers 410 once a recording has been
+			// deleted for data retention. For a caller that is one branch with
+			// 404 — the media is not there — so it gets the same exit code; the
+			// upstream message still says which of the two happened.
+			return ExitNotFound
 		case http.StatusUnprocessableEntity:
 			return ExitValidation
 		case http.StatusTooManyRequests:

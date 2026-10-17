@@ -6,6 +6,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `modjo call-reviews list` — the new `GET /call-reviews` endpoint, with
+  `--since`/`--until` (relative dates like `30d` work, as on `calls list`) and
+  `--order asc|desc`. Each review carries its per-question answers; they ride in
+  `--json` rather than the table.
+- `modjo calls recording <callId>` — the new `GET /calls/{id}/recording`
+  endpoint, returning a signed media URL valid for one hour. `--open` hands it
+  straight to the browser.
+
+### Changed
+
+- Webhook event names now cover the four the API added since v0.2.0
+  (`call_created`, `call_transcribed`, `call_tag_added`, `call_tag_removed`)
+  alongside the original three. Only the `--event` help text changed: the spec
+  accepts event names it has not published, so the CLI still sends whatever you
+  pass rather than validating against a list that would go stale.
+- Refreshed the bundled `docs/modjo-openapi.full.json` from the live spec and
+  the curated `docs/modjo-openapi.json` digest alongside it.
+
+### Fixed
+
+- HTTP 410 now exits `5` (not-found) instead of the generic `1`. `calls
+  recording` answers 410 once a recording has been deleted for data retention,
+  which for a caller is the same branch as "no recording here".
+
 ## [0.2.0] - 2026-06-25
 
 ### Added
